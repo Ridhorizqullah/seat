@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { AdminDashboard } from '../../components/admin/admin-dashboard'
 import { Button } from '../../components/ui/button'
 import { Booking, Performance } from '../../types'
+import { logout } from '@/lib/auth-client'
 
 interface DashboardStats {
   totalBookings: number
@@ -15,8 +16,8 @@ interface DashboardStats {
 }
 
 export default function AdminPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const [user, setUser] = useState<any>(null)
   const [stats, setStats] = useState<DashboardStats>({
     totalBookings: 0,
     totalRevenue: 0,
@@ -28,16 +29,25 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (status === 'loading') return // Still loading
-
-    if (status === 'unauthenticated') {
-      router.push('/admin/login')
-      return
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me')
+        const data = await res.json()
+        
+        if (data.success && (data.data.role === 'ADMIN' || data.data.role === 'STAFF')) {
+          setUser(data.data)
+          loadDashboardData()
+        } else {
+          router.push('/admin/login')
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err)
+        router.push('/admin/login')
+      }
     }
 
-    // Load dashboard data
-    loadDashboardData()
-  }, [status, router])
+    checkAuth()
+  }, [router])
 
     const loadDashboardData = async () => {
     setIsLoading(true)
@@ -108,33 +118,9 @@ export default function AdminPage() {
           updatedAt: new Date(),
           bookings: perf.bookings || []
         })))
-
-        console.log('📊 Dashboard data loaded:', {
-          stats: dashboardData.data.stats,
-          recentBookings: dashboardData.data.recentBookings.length,
-          upcomingPerformances: dashboardData.data.upcomingPerformances.length
-        })
-      } else {
-        console.error('Failed to fetch dashboard data:', dashboardData.error)
-        // Fallback to empty data
-        setStats({
-          totalBookings: 0,
-          totalRevenue: 0,
-          upcomingShows: 0,
-          checkedInToday: 0
-        })
-        setRecentBookings([])
-        setUpcomingPerformances([])
       }
-
     } catch (error) {
       console.error('Error loading dashboard data:', error)
-      setStats({
-        totalBookings: 0,
-        totalRevenue: 0,
-        upcomingShows: 0,
-        checkedInToday: 0
-      })
     } finally {
       setIsLoading(false)
     }
@@ -148,21 +134,16 @@ export default function AdminPage() {
     router.push(`/admin/shows?performance=${performanceId}`)
   }
 
-  const handleSignOut = async () => {
-    await signOut({ redirect: false })
-    router.push('/admin/login')
+  const handleSignOut = () => {
+    logout()
   }
 
-  if (status === 'loading' || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-highlight"></div>
       </div>
     )
-  }
-
-  if (status === 'unauthenticated') {
-    return null // Redirecting...
   }
 
   return (
@@ -173,15 +154,10 @@ export default function AdminPage() {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
-              {session?.user?.organization && (
-                <span className="ml-4 px-3 py-1 bg-emerald-100 text-emerald-800 text-sm rounded-full">
-                  {session.user.organization.name}
-                </span>
-              )}
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
-                Welcome, {session?.user?.name || session?.user?.email}
+                Welcome, {user?.email}
               </span>
               <Button
                 variant="outline"
@@ -198,21 +174,21 @@ export default function AdminPage() {
       <nav className="bg-gray-100 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
-            <a href="/admin" className="py-3 px-1 border-b-2 border-highlight text-sm font-medium text-highlight">
+            <Link href="/admin" className="py-3 px-1 border-b-2 border-highlight text-sm font-medium text-highlight">
               Dashboard
-            </a>
-            <a href="/admin/shows" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+            </Link>
+            <Link href="/admin/shows" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
               Shows
-            </a>
-            <a href="/admin/bookings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+            </Link>
+            <Link href="/admin/bookings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
               Bookings
-            </a>
-            <a href="/admin/customers" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+            </Link>
+            <Link href="/admin/customers" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
               Customers
-            </a>
-            <a href="/admin/settings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+            </Link>
+            <Link href="/admin/settings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
               Settings
-            </a>
+            </Link>
           </div>
         </div>
       </nav>

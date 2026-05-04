@@ -45,6 +45,17 @@ export async function GET(
           notes,
           createdAt,
           updatedAt
+        ),
+        venue:venues (
+          id,
+          name,
+          address,
+          city
+        ),
+        seating_layout:seating_layouts (
+          id,
+          name,
+          totalCapacity
         )
       `)
       .eq('id', id)
@@ -56,6 +67,8 @@ export async function GET(
       if (error.code === 'PGRST116') {
         return NextResponse.json({
           success: false,
+          status: 'error',
+          message: 'Show not found',
           error: 'Show not found'
         }, { status: 404 })
       }
@@ -65,6 +78,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
+      status: 'success',
       data: show
     })
 
@@ -72,6 +86,8 @@ export async function GET(
     console.error('Error fetching show:', error)
     return NextResponse.json({
       success: false,
+      status: 'error',
+      message: error.message || 'Failed to fetch show',
       error: error.message || 'Failed to fetch show'
     }, { status: 500 })
   }

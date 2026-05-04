@@ -1,29 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // Handle CORS for embed endpoints and API calls
-  if (request.nextUrl.pathname.startsWith('/embed') ||
-      request.nextUrl.pathname.startsWith('/api')) {
+  const { pathname } = request.nextUrl
+  const role = request.cookies.get('user_role')?.value
 
-    const response = NextResponse.next()
-
-    // Add CORS headers
-    response.headers.set('Access-Control-Allow-Origin', '*')
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-    // Additional headers for embed pages
-    if (request.nextUrl.pathname.startsWith('/embed')) {
-      response.headers.set('X-Frame-Options', 'ALLOWALL')
-      response.headers.set('Content-Security-Policy', 'frame-ancestors *;')
+  if (pathname.startsWith('/admin')) {
+    if (!role) {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
     }
 
-    return response
+    const upperRole = role.toUpperCase()
+    if (upperRole !== 'ADMIN' && upperRole !== 'STAFF') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/embed/:path*', '/api/:path*']
+  matcher: ['/admin/:path*'],
 }

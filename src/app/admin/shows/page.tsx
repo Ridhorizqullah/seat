@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '../../../components/ui/button'
+
 
 interface Show {
   id: string
@@ -51,8 +52,8 @@ interface EditingPerformance {
 }
 
 export default function AdminShowsPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const [user, setUser] = useState<any>(null)
   const [shows, setShows] = useState<Show[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -249,23 +250,32 @@ export default function AdminShowsPage() {
   }
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/admin/login')
-    } else if (status === 'authenticated') {
-      fetchShows()
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me')
+        const data = await res.json()
+        
+        if (data.success && (data.data.role === 'ADMIN' || data.data.role === 'STAFF')) {
+          setUser(data.data)
+          fetchShows()
+        } else {
+          router.push('/admin/login')
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err)
+        router.push('/admin/login')
+      }
     }
-  }, [status, router])
 
-  if (status === 'loading' || loading) {
+    checkAuth()
+  }, [router])
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
-  }
-
-  if (status === 'unauthenticated') {
-    return null
   }
 
   if (error) {
@@ -293,15 +303,15 @@ export default function AdminShowsPage() {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900">Shows Management</h1>
-              {session?.user?.organization && (
-                <span className="ml-4 px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
-                  {session.user.organization.name}
-                </span>
-              )}
             </div>
-            <Button variant="primary" onClick={handleNewShow}>
-              Add New Show
-            </Button>
+            <div className="flex items-center gap-4">
+               <span className="text-sm text-gray-600 hidden md:block">
+                {user?.email}
+              </span>
+              <Button variant="primary" onClick={handleNewShow}>
+                Add New Show
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -310,21 +320,21 @@ export default function AdminShowsPage() {
       <nav className="bg-gray-100 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
-            <a href="/admin" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+            <Link href="/admin" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
               Dashboard
-            </a>
-            <a href="/admin/shows" className="py-3 px-1 border-b-2 border-blue-500 text-sm font-medium text-blue-600">
+            </Link>
+            <Link href="/admin/shows" className="py-3 px-1 border-b-2 border-blue-500 text-sm font-medium text-blue-600">
               Shows
-            </a>
-            <a href="/admin/bookings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+            </Link>
+            <Link href="/admin/bookings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
               Bookings
-            </a>
-            <a href="/admin/customers" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+            </Link>
+            <Link href="/admin/customers" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
               Customers
-            </a>
-            <a href="/admin/settings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
+            </Link>
+            <Link href="/admin/settings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700">
               Settings
-            </a>
+            </Link>
           </div>
         </div>
       </nav>
@@ -392,12 +402,12 @@ export default function AdminShowsPage() {
                         £{revenue.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a
-                          href={`/book/${show.id}/${show.performances?.[0]?.id || ''}`}
+                        <Link
+                          href={`/events/${show.id}`}
                           className="text-green-600 hover:text-green-900 mr-4"
                         >
-                          Book Tickets
-                        </a>
+                          View Live
+                        </Link>
                         <button
                           onClick={() => handleEditShow(show)}
                           className="text-blue-600 hover:text-blue-900 mr-4"
@@ -410,38 +420,12 @@ export default function AdminShowsPage() {
                         >
                           Performances
                         </button>
-                        <button
-                          onClick={() => router.push(`/admin/bookings?showId=${show.id}`)}
-                          className="text-gray-600 hover:text-gray-900"
-                        >
-                          View Bookings
-                        </button>
                       </td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Total Shows</h3>
-            <p className="text-3xl font-bold text-blue-600">{shows.length}</p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Published Shows</h3>
-            <p className="text-3xl font-bold text-green-600">
-              {shows.filter(show => show.status === 'PUBLISHED').length}
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Total Performances</h3>
-            <p className="text-3xl font-bold text-purple-600">
-              {shows.reduce((sum, show) => sum + (show.performances?.length || 0), 0)}
-            </p>
           </div>
         </div>
       </main>
@@ -497,11 +481,6 @@ export default function AdminShowsPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="https://example.com/show-image.jpg"
                   />
-                  <p className="text-xs text-gray-600 mt-1">
-                    Leave empty to use a placeholder image. Recommended size: 400x300 pixels or larger.
-                    <br />
-                    <span className="text-blue-600">💡 Tip:</span> Upload images to <a href="https://imgur.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Imgur</a>, <a href="https://cloudinary.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Cloudinary</a>, or your own server.
-                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -551,16 +530,15 @@ export default function AdminShowsPage() {
                       onChange={(e) => setEditingShow(prev => prev ? {...prev, status: e.target.value} : null)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="DRAFT">Draft (not visible to customers)</option>
-                      <option value="PUBLISHED">Published (visible to customers)</option>
-                      <option value="ARCHIVED">Archived (hidden from customers)</option>
+                      <option value="DRAFT">Draft</option>
+                      <option value="PUBLISHED">Published</option>
+                      <option value="ARCHIVED">Archived</option>
                     </select>
-                    <p className="text-xs text-gray-600 mt-1">Only shows with "Published" status appear on the What's On page</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
+                   <div>
                     <label className="block text-sm font-medium text-gray-800 mb-1">Adult Price (£)</label>
                     <input
                       type="number"
@@ -571,33 +549,7 @@ export default function AdminShowsPage() {
                       min="0"
                     />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 mb-1">Child Price (£)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editingShow.childPrice}
-                      onChange={(e) => setEditingShow(prev => prev ? {...prev, childPrice: parseFloat(e.target.value) || 0} : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      min="0"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 mb-1">Concession Price (£)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editingShow.concessionPrice}
-                      onChange={(e) => setEditingShow(prev => prev ? {...prev, concessionPrice: parseFloat(e.target.value) || 0} : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      min="0"
-                    />
-                  </div>
                 </div>
-
-
               </div>
 
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
@@ -654,28 +606,18 @@ export default function AdminShowsPage() {
                         <div className="font-medium text-gray-900">
                           {formatDateTime(performance.dateTime)}
                         </div>
-                        {performance.isMatinee && (
-                          <span className="inline-block mt-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
-                            Matinee
-                          </span>
-                        )}
-                        {performance.notes && (
-                          <div className="text-sm text-gray-600 mt-1">{performance.notes}</div>
-                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
-                          size="sm"
                           onClick={() => handleEditPerformance(performance)}
                         >
                           Edit
                         </Button>
                         <Button
                           variant="ghost"
-                          size="sm"
                           onClick={() => handleDeletePerformance(performance.id)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600"
                         >
                           Delete
                         </Button>
@@ -684,7 +626,7 @@ export default function AdminShowsPage() {
                   ))
                 ) : (
                   <div className="text-center py-8 text-gray-600">
-                    No performances scheduled. Add the first performance to get started.
+                    No performances scheduled.
                   </div>
                 )}
               </div>
@@ -720,30 +662,6 @@ export default function AdminShowsPage() {
                     value={editingPerformance.dateTime}
                     onChange={(e) => setEditingPerformance(prev => prev ? {...prev, dateTime: e.target.value} : null)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isMatinee"
-                    checked={editingPerformance.isMatinee}
-                    onChange={(e) => setEditingPerformance(prev => prev ? {...prev, isMatinee: e.target.checked} : null)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="isMatinee" className="ml-2 text-sm text-gray-800">
-                    Matinee performance
-                  </label>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-800 mb-1">Notes (optional)</label>
-                  <textarea
-                    value={editingPerformance.notes}
-                    onChange={(e) => setEditingPerformance(prev => prev ? {...prev, notes: e.target.value} : null)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Any special notes for this performance"
                   />
                 </div>
               </div>

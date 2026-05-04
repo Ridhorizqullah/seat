@@ -1,37 +1,21 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Booking } from '../../../../types'
 import { Button } from '../../../../components/ui/button'
 
 export default function BookingDetailPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
   const params = useParams()
   const bookingId = params.id as string
-
   const [booking, setBooking] = useState<Booking | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefunding, setIsRefunding] = useState(false)
   const [refundAmount, setRefundAmount] = useState<string>('')
   const [refundMessage, setRefundMessage] = useState<string>('')
 
-  useEffect(() => {
-    if (status === 'loading') return
-
-    if (status === 'unauthenticated') {
-      router.push('/admin/login')
-      return
-    }
-
-    if (bookingId) {
-      loadBooking()
-    }
-  }, [status, router, bookingId])
-
-  const loadBooking = async () => {
+  const loadBooking = useCallback(async () => {
     setIsLoading(true)
     setRefundMessage('')
     try {
@@ -50,7 +34,27 @@ export default function BookingDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [bookingId])
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me')
+        const data = await res.json()
+        if (data.success && (data.data.role === 'ADMIN' || data.data.role === 'STAFF')) {
+          if (bookingId) {
+            loadBooking()
+          }
+        } else {
+          router.push('/admin/login')
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err)
+        router.push('/admin/login')
+      }
+    }
+    checkAuth()
+  }, [router, bookingId, loadBooking])
 
   const formatDateTime = (dateTime: string | Date) => {
     const date = new Date(dateTime)
@@ -124,7 +128,7 @@ export default function BookingDetailPage() {
     }
   }
 
-  if (status === 'loading' || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

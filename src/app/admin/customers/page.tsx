@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Customer } from '../../../types'
 import { Button } from '../../../components/ui/button'
 
@@ -13,27 +13,13 @@ interface CustomerFilters {
 }
 
 export default function AdminCustomersPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filters, setFilters] = useState<CustomerFilters>({})
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
 
-  useEffect(() => {
-    if (status === 'loading') return
-
-    if (status === 'unauthenticated') {
-      router.push('/admin/login')
-      return
-    }
-
-    // Initial load only; subsequent loads triggered by Search/Clear/Page change
-    loadCustomers()
-  }, [status, router])
-
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
@@ -48,7 +34,6 @@ export default function AdminCustomersPage() {
 
       if (data.success) {
         setCustomers(data.data)
-        setTotalPages(data.meta?.totalPages || 1)
       } else {
         console.error('Failed to load customers:', data.error)
       }
@@ -57,7 +42,25 @@ export default function AdminCustomersPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [currentPage, filters])
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me')
+        const data = await res.json()
+        if (data.success && (data.data.role === 'ADMIN' || data.data.role === 'STAFF')) {
+          loadCustomers()
+        } else {
+          router.push('/admin/login')
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err)
+        router.push('/admin/login')
+      }
+    }
+    checkAuth()
+  }, [router, loadCustomers])
 
   const formatDate = (timestamp: number) => {
     return new Intl.DateTimeFormat('en-GB', {
@@ -67,7 +70,7 @@ export default function AdminCustomersPage() {
     }).format(new Date(timestamp))
   }
 
-  if (status === 'loading' || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -104,21 +107,21 @@ export default function AdminCustomersPage() {
       <nav className="bg-gray-100 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
-            <a href="/admin" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
+            <Link href="/admin" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
               Dashboard
-            </a>
-            <a href="/admin/shows" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
+            </Link>
+            <Link href="/admin/shows" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
               Shows
-            </a>
-            <a href="/admin/bookings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
+            </Link>
+            <Link href="/admin/bookings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
               Bookings
-            </a>
-            <a href="/admin/customers" className="py-3 px-1 border-b-2 border-highlight text-sm font-medium text-highlight">
+            </Link>
+            <Link href="/admin/customers" className="py-3 px-1 border-b-2 border-highlight text-sm font-medium text-highlight">
               Customers
-            </a>
-            <a href="/admin/settings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
+            </Link>
+            <Link href="/admin/settings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
               Settings
-            </a>
+            </Link>
           </div>
         </div>
       </nav>

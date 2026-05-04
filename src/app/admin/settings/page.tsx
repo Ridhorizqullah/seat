@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '../../../components/ui/button'
 
 interface VenueSettings {
@@ -43,7 +43,6 @@ interface ExternalLinks {
 }
 
 export default function AdminSettingsPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -110,21 +109,28 @@ export default function AdminSettingsPage() {
         const parsed = JSON.parse(stored) as Partial<Record<ThemeKeys, string>>
         setThemeSettings(prev => ({ ...prev, ...parsed }))
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, [])
 
   useEffect(() => {
-    if (status === 'loading') return
-
-    if (status === 'unauthenticated') {
-      router.push('/admin/login')
-      return
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me')
+        const data = await res.json()
+        if (data.success && (data.data.role === 'ADMIN' || data.data.role === 'STAFF')) {
+          loadSettings()
+        } else {
+          router.push('/admin/login')
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err)
+        router.push('/admin/login')
+      }
     }
-
-    loadSettings()
-  }, [status, router])
+    checkAuth()
+  }, [router])
 
   const loadSettings = async () => {
     setIsLoading(true)
@@ -228,7 +234,7 @@ export default function AdminSettingsPage() {
       window.localStorage.setItem('eventseats_theme', JSON.stringify(themeSettings))
       applyThemeToDocument(themeSettings)
       alert('Theme saved!')
-    } catch (e) {
+    } catch {
       alert('Failed to save theme')
     }
   }
@@ -280,7 +286,7 @@ export default function AdminSettingsPage() {
     { id: 'admin', name: 'Admin Users', icon: '👥' }
   ]
 
-  if (status === 'loading' || isLoading) {
+  if (isLoading) {
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
@@ -324,21 +330,21 @@ export default function AdminSettingsPage() {
       <nav className="bg-gray-100 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
-            <a href="/admin" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
+            <Link href="/admin" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
               Dashboard
-            </a>
-            <a href="/admin/shows" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
+            </Link>
+            <Link href="/admin/shows" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
               Shows
-            </a>
-            <a href="/admin/bookings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
+            </Link>
+            <Link href="/admin/bookings" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
               Bookings
-            </a>
-            <a href="/admin/customers" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
+            </Link>
+            <Link href="/admin/customers" className="py-3 px-1 border-b-2 border-transparent text-sm font-medium text-gray-700 hover:text-gray-800">
               Customers
-            </a>
-            <a href="/admin/settings" className="py-3 px-1 border-b-2 border-highlight text-sm font-medium text-highlight">
+            </Link>
+            <Link href="/admin/settings" className="py-3 px-1 border-b-2 border-highlight text-sm font-medium text-highlight">
               Settings
-            </a>
+            </Link>
           </div>
         </div>
       </nav>
@@ -373,7 +379,7 @@ export default function AdminSettingsPage() {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="mb-6">
                   <h3 className="text-lg font-medium text-gray-900">Venue Information</h3>
-                  <p className="text-sm text-gray-700">Manage your venue's contact and location details</p>
+                  <p className="text-sm text-gray-700">Manage your venue&apos;s contact and location details</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
