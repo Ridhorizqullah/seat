@@ -41,11 +41,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      {brandStylesheet ? (
-        <head>
+      <head>
+
+        {brandStylesheet ? (
           <link rel="stylesheet" href={brandStylesheet} />
-        </head>
-      ) : null}
+        ) : null}
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${poppins.variable} antialiased`}
       >

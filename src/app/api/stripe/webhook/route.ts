@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const event = stripe.webhooks.constructEvent(payload, signature, process.env.STRIPE_WEBHOOK_SECRET)
 
     const createOrFindCustomer = async (email: string, firstName?: string, lastName?: string) => {
-      const { data: existing, error: lookupErr } = await supabase
+      const { data: existing } = await supabase
         .from('customers')
         .select('id')
         .eq('email', email)

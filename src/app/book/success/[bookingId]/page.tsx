@@ -2,9 +2,19 @@ import React from 'react'
 import { getServerSupabase } from '@/lib/supabase'
 import Stripe from 'stripe'
 import Link from 'next/link'
+import { 
+  CheckCircle2, 
+  Ticket, 
+  Calendar, 
+  MapPin, 
+  Home, 
+  Download,
+  Info,
+  ShieldCheck
+} from 'lucide-react'
+import { RedirectTimer } from '@/components/user/RedirectTimer'
 
 async function fetchBooking(identifier: string) {
-  // identifier may be a Stripe Checkout Session ID (cs_...) or our booking UUID
   const supabase = getServerSupabase()
   const bookingQuery = supabase
     .from('bookings')
@@ -19,7 +29,7 @@ async function fetchBooking(identifier: string) {
       stripePaymentIntentId,
       customers ( firstName, lastName, email ),
       performances ( id, dateTime ),
-      shows ( id, title )
+      shows ( id, title, imageUrl )
     `)
 
   if (identifier.startsWith('cs_')) {
@@ -29,125 +39,222 @@ async function fetchBooking(identifier: string) {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
     const session = await stripe.checkout.sessions.retrieve(identifier)
     const piId = (session.payment_intent as string) || ''
-    if (!piId) throw new Error('Payment not found for session')
-    // Retry to allow webhook to write booking
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const { data, error } = await bookingQuery.eq('stripePaymentIntentId', piId).limit(1)
-      if (error) throw new Error(error.message)
-      const booking = Array.isArray(data) ? data[0] : data
-      if (booking) return booking
-      // wait 500ms before next attempt
-      await new Promise(r => setTimeout(r, 500))
+    
+    // Attempt to find booking by Payment Intent (updated by webhook)
+    if (piId) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { data } = await bookingQuery.eq('stripePaymentIntentId', piId).maybeSingle()
+        if (data && data.status === 'PAID') return data
+        await new Promise(r => setTimeout(r, 1000))
+      }
     }
-    // Fallback: use bookingId from session metadata if webhook hasn't updated yet
-    const fallbackBookingId = (session.metadata && (session.metadata as any).bookingId) as string | undefined
+    
+    // Fallback: use bookingId from session metadata
+    const fallbackBookingId = session.metadata?.bookingId as string | undefined
     if (fallbackBookingId) {
-      const { data, error } = await bookingQuery.eq('id', fallbackBookingId).limit(1)
-      if (error) throw new Error(error.message)
-      const booking = Array.isArray(data) ? data[0] : data
-      if (booking) return booking
+      const { data } = await bookingQuery.eq('id', fallbackBookingId).maybeSingle()
+      if (data) {
+        // If it's still PENDING but session is paid, update it here (fail-safe)
+        if (data.status === 'PENDING' && (session.payment_status === 'paid' || session.status === 'complete')) {
+          await supabase.from('bookings').update({ 
+            status: 'PAID', 
+            stripePaymentIntentId: piId,
+            paidAt: new Date().toISOString()
+          }).eq('id', fallbackBookingId)
+          
+          // Refetch to get the updated state
+          const { data: updated } = await bookingQuery.eq('id', fallbackBookingId).single()
+          return updated
+        }
+        return data
+      }
     }
+    
     throw new Error('Booking not found')
   }
 
-  const { data, error } = await bookingQuery.eq('id', identifier).limit(1)
+  const { data, error } = await bookingQuery.eq('id', identifier).maybeSingle()
   if (error) throw new Error(error.message)
-  const booking = Array.isArray(data) ? data[0] : data
-  if (!booking) throw new Error('Booking not found')
-  return booking
+  if (!data) throw new Error('Booking not found')
+  return data
 }
 
-export default async function BookingSuccessPage({ params, searchParams }: { params: Promise<{ bookingId: string }>, searchParams?: Promise<Record<string, string>> }) {
+export default async function BookingSuccessPage({ 
+  params, 
+  searchParams 
+}: { 
+  params: Promise<{ bookingId: string }>, 
+  searchParams?: Promise<Record<string, string>> 
+}) {
   const { bookingId } = await params
-  const sp = (await (searchParams || Promise.resolve({}))) || {}
-  const fallbackId = (sp as any).bookingId as string | undefined
-  const booking = await fetchBooking(bookingId.startsWith('cs_') && fallbackId ? fallbackId : bookingId)
+  const sp = await searchParams || {}
+  const fallbackId = sp.bookingId as string | undefined
+  
+  // Use fallbackId if the main param is a Stripe Session ID
+  const identifier = bookingId.startsWith('cs_') && fallbackId ? fallbackId : bookingId
+  
+  let booking: any
+  try {
+    booking = await fetchBooking(identifier)
+  } catch {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md w-full bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 text-center">
+          <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Info className="w-8 h-8 text-red-600" />
+          </div>
+          <h1 className="text-2xl font-black text-slate-900 mb-2">Booking Tidak Ditemukan</h1>
+          <p className="text-slate-500 mb-8">Maaf, kami tidak dapat menemukan detail pesanan Anda. Silakan hubungi dukungan jika pembayaran Anda sudah berhasil.</p>
+          <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all">
+            <Home className="w-5 h-5" />
+            Kembali ke Beranda
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
-  const show = (booking as any).shows
-  const perf = (booking as any).performances
-
-  const bookingDateRaw = (booking as any).createdAt || (booking as any).paidAt || new Date().toISOString()
+  const show = booking.shows
+  const perf = booking.performances
+  const customer = booking.customers
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">Book Tickets</h1>
-              <p className="text-gray-600">Demo Theatre</p>
-            </div>
-            <nav>
-              <Link href="/" className="text-blue-600 hover:text-blue-500">← Back to Shows</Link>
-            </nav>
+    <main className="min-h-screen bg-[#F8FAFC] pb-20">
+      {/* Header / Success Indicator */}
+      <div className="bg-white border-b border-slate-100 py-10">
+        <div className="max-w-[800px] mx-auto px-6 text-center">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-50 rounded-[32px] mb-6 relative">
+            <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+            <div className="absolute -inset-2 bg-emerald-100/50 rounded-[40px] -z-10 animate-pulse"></div>
           </div>
-        </div>
-      </header>
-
-      {/* Step Indicator matching booking flow */}
-      <div className="flex items-center justify-center mb-8 mt-6">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium bg-green-600 text-white">1</div>
-          <span className="text-sm font-medium text-gray-700">Select Seats</span>
-          <div className="w-8 h-px bg-gray-300" />
-          <div className="flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium bg-green-600 text-white">2</div>
-          <span className="text-sm font-medium text-gray-700">Customer Info</span>
-          <div className="w-8 h-px bg-gray-300" />
-          <div className="flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium bg-green-600 text-white">3</div>
-          <span className="text-sm font-medium text-green-600">Confirmation</span>
+          <h1 className="text-4xl font-black text-slate-900 mb-3">Pembayaran Berhasil!</h1>
+          <p className="text-slate-500 font-medium max-w-md mx-auto">
+            Terima kasih, **{customer?.firstName}**. Pesanan Anda telah dikonfirmasi dan tiket elektronik telah dikirim ke **{customer?.email}**.
+          </p>
+          <RedirectTimer target="/tickets" delay={8000} />
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Booking Confirmed!</h2>
-          <p className="text-lg text-gray-700 mb-1">Your tickets have been successfully booked.</p>
-          <p className="text-gray-600">Booking confirmation has been sent to {(booking.customers as any)?.email}</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Booking Details</h3>
-            <div className="space-y-4">
-              <div className="border-b border-gray-200 pb-4">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-sm font-medium text-gray-600">Booking Number</span>
-                  <span className="text-sm font-mono text-gray-900">{booking.bookingNumber}</span>
-                </div>
-                <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-gray-600">Booking Date</span>
-                  <span className="text-sm text-gray-900">{new Date(bookingDateRaw as any).toLocaleString('en-GB')}</span>
-                </div>
+      <div className="max-w-[800px] mx-auto px-6 -mt-8">
+        {/* Digital Ticket Card */}
+        <div className="bg-white rounded-[40px] shadow-2xl shadow-blue-900/5 border border-slate-100 overflow-hidden relative">
+          {/* Top Banner */}
+          <div className="h-48 relative overflow-hidden bg-slate-900">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={show?.imageUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80"} 
+              className="w-full h-full object-cover opacity-40" 
+              alt="Show" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent"></div>
+            <div className="absolute bottom-8 left-10">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="px-3 py-1 bg-emerald-500 text-[10px] font-black rounded-full uppercase tracking-widest text-white shadow-lg shadow-emerald-500/20">
+                  Confirmed
+                </span>
+                <span className="px-3 py-1 bg-white/10 backdrop-blur-md text-[10px] font-black rounded-full uppercase tracking-widest text-white border border-white/20">
+                  {booking.bookingNumber}
+                </span>
               </div>
-              <div className="border-b border-gray-200 pb-4">
-                <h4 className="font-medium text-gray-900 mb-2">Show Information</h4>
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-800"><span className="font-medium">Title:</span> {show?.title}</p>
-                  <p className="text-sm text-gray-800"><span className="font-medium">Date & Time:</span> {new Date(perf?.dateTime).toLocaleString('en-GB')}</p>
-                </div>
-              </div>
-              <div className="bg-emerald-50 rounded-lg p-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold text-emerald-900">Total Amount</span>
-                  <span className="text-2xl font-bold text-emerald-900">£{Number(booking.totalAmount).toFixed(2)}</span>
-                </div>
-                <p className="text-xs text-emerald-700 mt-1">Payment confirmed</p>
-              </div>
+              <h2 className="text-3xl font-black text-white">{show?.title}</h2>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6 text-center">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Your Digital Tickets</h3>
-            <p className="text-sm text-gray-600 mb-4">Keep this page for your records. You will receive an email with ticket details.</p>
-            <Link href="/" className="inline-flex items-center justify-center bg-blue-600 text-white rounded px-4 py-2 hover:bg-blue-700">Back to Shows</Link>
+          {/* Ticket Details */}
+          <div className="p-10 relative">
+            {/* Perforation Effect */}
+            <div className="absolute top-0 left-10 right-10 h-px border-t-2 border-dashed border-slate-100"></div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12 mb-10 pb-10 border-b border-slate-100">
+              <div className="space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Jadwal Pertunjukan</p>
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                  <p className="text-lg font-black text-slate-900">
+                    {new Date(perf?.dateTime).toLocaleDateString('id-ID', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Lokasi Venue</p>
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                  <p className="text-lg font-black text-slate-900">Demo Theatre, Hall A</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Metode Pembayaran</p>
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <p className="text-lg font-black text-slate-900">Stripe Card Payment</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Total Pembayaran</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-black text-slate-900">£{Number(booking.totalAmount).toFixed(2)}</span>
+                  <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">GBP</span>
+                </div>
+              </div>
+            </div>
+
+            {/* QR Section */}
+            <div className="flex flex-col md:flex-row items-center gap-10">
+              <div className="p-4 bg-slate-50 rounded-[32px] border border-slate-100 shadow-inner group">
+                <div className="w-32 h-32 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-500 overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${booking.bookingNumber}`} 
+                    alt="Booking QR Code"
+                    className="w-24 h-24"
+                  />
+                </div>
+              </div>
+              <div className="flex-1 text-center md:text-left space-y-3">
+                <h4 className="text-xl font-black text-slate-900">Tunjukkan QR Code Ini</h4>
+                <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                  Gunakan kode QR di atas saat memasuki gedung pertunjukan. Pastikan Anda tiba 30 menit sebelum acara dimulai.
+                </p>
+                <div className="pt-2 flex flex-wrap justify-center md:justify-start gap-4">
+                  <button className="flex items-center gap-2 text-blue-600 font-black text-[10px] uppercase tracking-widest hover:text-blue-700 transition-colors">
+                    <Download className="w-4 h-4" />
+                    Simpan Tiket (PDF)
+                  </button>
+                  <button className="flex items-center gap-2 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">
+                    <Calendar className="w-4 h-4" />
+                    Tambah ke Kalender
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </main>
-    </div>
+
+        {/* Bottom Actions */}
+        <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link 
+            href="/tickets" 
+            className="w-full sm:w-auto px-10 h-16 bg-blue-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 active:translate-y-0"
+          >
+            <Ticket className="w-5 h-5" />
+            Lihat Tiket Saya
+          </Link>
+          <Link 
+            href="/" 
+            className="w-full sm:w-auto px-10 h-16 bg-white text-slate-900 border border-slate-100 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all flex items-center justify-center gap-3"
+          >
+            <Home className="w-5 h-5" />
+            Kembali ke Beranda
+          </Link>
+        </div>
+      </div>
+    </main>
   )
 }

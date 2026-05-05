@@ -3,8 +3,9 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Booking } from '../../../types'
-import { Button } from '../../../components/ui/button'
+import { Booking, Seat } from '@/types'
+import { Button } from '@/components/ui/button'
+import { supabase } from '@/lib/supabase'
 // getUser removed - using server-side auth instead
 
 
@@ -13,7 +14,10 @@ export default function AdminBookingsPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [shows, setShows] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [seats, setSeats] = useState<Seat[]>([])
+  const [selectedShowId, setSelectedShowId] = useState<string | null>(null)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -23,6 +27,7 @@ export default function AdminBookingsPage() {
         if (data.success && (data.data.role === 'ADMIN' || data.data.role === 'STAFF')) {
           setUser(data.data)
           loadBookings()
+          loadShows()
         } else {
           router.push('/admin/login')
         }
@@ -33,6 +38,44 @@ export default function AdminBookingsPage() {
     }
     checkAuth()
   }, [router])
+
+  // --- SEAT MANAGEMENT & REALTIME (Integrasi Realtime Workflow) ---
+  useEffect(() => {
+    if (!selectedShowId) return
+
+    const loadSeats = async () => {
+      const { data, error } = await supabase
+        .from('seats')
+        .select('*')
+        .eq('show_id', selectedShowId)
+        .order('seat_number', { ascending: true })
+
+      if (!error && data) {
+        setSeats(data)
+      }
+    }
+
+    loadSeats()
+
+    const channel = supabase
+      .channel(`seats-${selectedShowId}`)
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'seats', filter: `show_id=eq.${selectedShowId}` }, 
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setSeats(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s))
+          } else {
+            loadSeats()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [selectedShowId])
+  // -----------------------------------------------------------------
 
   const loadBookings = async () => {
     setIsLoading(true)
@@ -87,6 +130,18 @@ export default function AdminBookingsPage() {
       console.error('Error loading bookings:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadShows = async () => {
+    try {
+      const response = await fetch('/api/shows')
+      const data = await response.json()
+      if (data.success) {
+        setShows(data.data || [])
+      }
+    } catch (error) {
+      console.error('Error loading shows:', error)
     }
   }
 
@@ -155,7 +210,61 @@ export default function AdminBookingsPage() {
         </div>
       </nav>
 
+      {/* Seat Occupancy Map */}
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-medium text-gray-900">Seat Occupancy Map</h2>
+            <select 
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              onChange={(e) => setSelectedShowId(e.target.value)}
+              value={selectedShowId || ''}
+            >
+              <option value="">Select a show to view seats</option>
+              {shows.map(show => (
+                <option key={show.id} value={show.id}>{show.title}</option>
+              ))}
+            </select>
+          </div>
+
+          {selectedShowId ? (
+            <div className="flex flex-wrap gap-2 justify-center">
+              {seats.length > 0 ? (
+                seats.map(seat => (
+                  <div 
+                    key={seat.id}
+                    className={`w-8 h-8 rounded-t-lg border-2 flex items-center justify-center text-[10px] font-bold ${
+                      seat.status === 'booked' 
+                        ? 'bg-red-500 border-red-600 text-white' 
+                        : 'bg-green-100 border-green-300 text-green-800'
+                    }`}
+                    title={`Seat ${seat.seat_number} - ${seat.status}`}
+                  >
+                    {seat.seat_number}
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">No seats generated for this show.</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-center text-gray-500 py-8 italic">Select a show above to visualize seat occupancy.</p>
+          )}
+
+          {selectedShowId && seats.length > 0 && (
+            <div className="mt-6 flex justify-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
+                <span>Available ({seats.filter(s => s.status !== 'booked').length})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-500 border border-red-600 rounded"></div>
+                <span>Booked ({seats.filter(s => s.status === 'booked').length})</span>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

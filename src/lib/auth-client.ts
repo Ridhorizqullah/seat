@@ -18,13 +18,7 @@ export function getUser() {
   return null
 }
 
-export function logout() {
-  if (typeof document === 'undefined') return
-
-  // Hapus cookie
-  document.cookie = 'user_email=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
-  document.cookie = 'user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
-
-  // Redirect
+export async function logout() {
+  await fetch('/api/auth/logout')
   window.location.href = '/'
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseService } from '@/lib/supabase'
 
 interface UpdateShowRequest {
   title?: string
@@ -21,7 +21,7 @@ export async function GET(
   try {
     const { id } = await params
 
-    const { data: show, error } = await supabase
+    const { data: show, error } = await supabaseService
       .from('shows')
       .select(`
         id,
@@ -55,7 +55,8 @@ export async function GET(
         seating_layout:seating_layouts (
           id,
           name,
-          totalCapacity
+          rows,
+          columns
         )
       `)
       .eq('id', id)

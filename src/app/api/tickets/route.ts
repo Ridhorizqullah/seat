@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseService } from '@/lib/supabase'
 import { getServerSession } from '@/lib/auth-server'
+import Stripe from 'stripe'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,23 +23,18 @@ export async function GET(request: NextRequest) {
     const targetEmail = email || session.email
 
     // 1. Find customer by email
-    const { data: customer, error: customerError } = await supabase
+    const { data: customer, error: customerError } = await supabaseService
       .from('customers')
       .select('id')
-      .eq('email', targetEmail)
+      .ilike('email', targetEmail)
       .single()
 
     if (customerError || !customer) {
-      // If customer not found, they just have no tickets
-      return NextResponse.json({
-        success: true,
-        status: 'success',
-        data: []
-      })
+      return NextResponse.json({ success: true, status: 'success', data: [] })
     }
 
-    // 2. Fetch bookings and ticket details
-    const { data: bookings, error: bookingsError } = await supabase
+    // 2. Fetch bookings
+    const { data: bookings, error: bookingsError } = await supabaseService
       .from('bookings')
       .select(`
         id,
@@ -44,6 +42,7 @@ export async function GET(request: NextRequest) {
         status,
         totalAmount,
         createdAt,
+        stripePaymentIntentId,
         performances (
           id,
           dateTime,
@@ -71,15 +70,50 @@ export async function GET(request: NextRequest) {
       .eq('customerId', customer.id)
       .order('createdAt', { ascending: false })
 
-    if (bookingsError) {
-      throw new Error(`Database error: ${bookingsError.message}`)
+    if (bookingsError) throw bookingsError
+
+    const results = bookings || []
+
+    // 3. Self-Healing: Check Stripe for any PENDING bookings
+    const pendingBookings = results.filter(b => b.status === 'PENDING')
+    
+    if (pendingBookings.length > 0 && process.env.STRIPE_SECRET_KEY) {
+      for (const booking of pendingBookings) {
+        try {
+          let isActuallyPaid = false
+          let piId = booking.stripePaymentIntentId
+
+          if (piId) {
+            const pi = await stripe.paymentIntents.retrieve(piId)
+            if (pi.status === 'succeeded') isActuallyPaid = true
+          } else {
+            const sessions = await stripe.checkout.sessions.list({ limit: 15 })
+            const match = sessions.data.find(s => s.metadata?.bookingId === booking.id)
+            if (match && (match.payment_status === 'paid' || match.status === 'complete')) {
+              isActuallyPaid = true
+              piId = typeof match.payment_intent === 'string' ? match.payment_intent : (piId || '')
+            }
+          }
+
+          if (isActuallyPaid) {
+            await supabaseService.from('bookings').update({ 
+              status: 'PAID', 
+              stripePaymentIntentId: piId,
+              paidAt: new Date().toISOString() 
+            }).eq('id', booking.id)
+            booking.status = 'PAID'
+            booking.stripePaymentIntentId = piId
+          }
+        } catch (err) {
+          console.error(`Self-healing failed for booking ${booking.id}:`, err)
+        }
+      }
     }
 
-    // Return the bookings as tickets
     return NextResponse.json({
       success: true,
       status: 'success',
-      data: bookings || []
+      data: results
     })
 
   } catch (error: any) {
@@ -87,8 +121,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: false,
       status: 'error',
-      message: error.message || 'Failed to fetch tickets',
-      error: error.message || 'Failed to fetch tickets'
+      message: error.message || 'Failed to fetch tickets'
     }, { status: 500 })
   }
 }

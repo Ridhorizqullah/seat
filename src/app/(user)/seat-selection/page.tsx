@@ -1,230 +1,320 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useMemo } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { 
+  Calendar, 
+  MapPin, 
+  ArrowLeft, 
+  ChevronRight, 
+  Ticket, 
+  CreditCard,
+  ShieldCheck,
+  Loader2,
+  Info
+} from 'lucide-react'
+import { SeatGrid } from '@/components/seat/seat-grid'
+import { useRealtimeSeats } from '@/lib/hooks/use-realtime-seats'
+import { Seat, SeatSelection, TicketType } from '@/types'
+import { cn } from '@/lib/utils'
 
 function SeatSelectionContent() {
   const searchParams = useSearchParams()
   const performanceId = searchParams.get('performanceId')
   const showId = searchParams.get('showId')
 
-  const [seats, setSeats] = useState<any[]>([])
+  const [layout, setLayout] = useState<any>(null)
   const [show, setShow] = useState<any>(null)
-  const [selectedSeats, setSelectedSeats] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [selectedSeats, setSelectedSeats] = useState<SeatSelection[]>([])
+  const [fetchingData, setFetchingData] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Realtime hook
+  const { bookedSeats } = useRealtimeSeats(performanceId || '')
 
   useEffect(() => {
     if (!performanceId || !showId) {
       setError('Missing session details. Please select an event again.')
-      setLoading(false)
+      setFetchingData(false)
       return
     }
 
     async function fetchData() {
       try {
-        setLoading(true)
+        setFetchingData(true)
         setError(null)
-        const [showRes, seatsRes] = await Promise.all([
-          fetch(`/api/shows/${showId}`),
-          fetch(`/api/performances/${performanceId}/seats`)
-        ])
-
-        const showData = await showRes.json()
-        const seatsData = await seatsRes.json()
-
-        if (showData.success) setShow(showData.data)
-        else throw new Error(showData.message || 'Failed to load event')
         
-        if (seatsData.success) setSeats(seatsData.data)
-        else throw new Error(seatsData.message || 'Failed to load seats')
+        // 1. Fetch Show and Layout
+        const showRes = await fetch(`/api/shows/${showId}`)
+        const showData = await showRes.json()
+        if (!showData.success) throw new Error(showData.message || 'Failed to load show')
+        setShow(showData.data)
+
+        // 2. Fetch Seats for this layout/performance
+        const seatsRes = await fetch(`/api/performances/${performanceId}/seats`)
+        const seatsData = await seatsRes.json()
+        if (!seatsData.success) throw new Error(seatsData.message || 'Failed to load seats')
+
+        // Construct a full seatingLayout object for the SeatGrid component
+        const seatingLayout = {
+          ...showData.data.seating_layout,
+          seats: seatsData.data
+        }
+        setLayout(seatingLayout)
+
       } catch (err: any) {
-        console.error('Error fetching seat data:', err)
+        console.error('Error fetching data:', err)
         setError(err.message || 'Connection lost. Please try again.')
       } finally {
-        setLoading(false)
+        setFetchingData(false)
       }
     }
 
     fetchData()
   }, [performanceId, showId])
 
-  const toggleSeat = (seat: any) => {
-    if (seat.status === 'booked') return
+  const handleSeatSelect = (seat: Seat, ticketType: TicketType) => {
+    // Get price based on ticket type
+    let price = show.adultPrice
+    if (ticketType === TicketType.CHILD) price = show.childPrice
+    if (ticketType === TicketType.CONCESSION) price = show.concessionPrice
 
-    const isSelected = selectedSeats.find(s => s.seatId === seat.seatId)
-    if (isSelected) {
-      setSelectedSeats(selectedSeats.filter(s => s.seatId !== seat.seatId))
-    } else {
-      setSelectedSeats([...selectedSeats, seat])
+    const newSelection: SeatSelection = {
+      seatId: seat.id,
+      seat: seat,
+      ticketType: ticketType,
+      price: price
     }
+    setSelectedSeats([...selectedSeats, newSelection])
   }
 
-  if (loading) {
+  const handleSeatDeselect = (seatId: string) => {
+    setSelectedSeats(selectedSeats.filter(s => s.seatId !== seatId))
+  }
+
+  const handleTicketTypeChange = (seatId: string, ticketType: TicketType) => {
+    let price = show.adultPrice
+    if (ticketType === TicketType.CHILD) price = show.childPrice
+    if (ticketType === TicketType.CONCESSION) price = show.concessionPrice
+
+    setSelectedSeats(selectedSeats.map(s => 
+      s.seatId === seatId ? { ...s, ticketType, price } : s
+    ))
+  }
+
+  const totalPrice = useMemo(() => {
+    return selectedSeats.reduce((sum, s) => sum + s.price, 0)
+  }, [selectedSeats])
+
+  if (fetchingData) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-slate-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-500/20 border-t-teal-600"></div>
-        <p className="text-slate-500 font-medium">Scanning available seats...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-6 bg-slate-50">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+             <Ticket className="w-6 h-6 text-blue-600" />
+          </div>
+        </div>
+        <div className="text-center">
+          <p className="text-slate-900 font-black uppercase tracking-widest text-sm">Preparing Venue</p>
+          <p className="text-slate-400 text-xs font-medium">Syncing live seat availability...</p>
+        </div>
       </div>
     )
   }
 
-  if (error || !show || !performanceId) {
+  if (error || !show || !layout) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-6 text-center px-6 bg-slate-50">
-        <div className="w-20 h-20 bg-white border border-slate-100 rounded-full flex items-center justify-center shadow-sm">
-          <span className="material-symbols-outlined text-4xl text-slate-300">event_seat</span>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-8 text-center px-6 bg-slate-50">
+        <div className="w-24 h-24 bg-red-50 border border-red-100 rounded-[32px] flex items-center justify-center shadow-xl shadow-red-500/10">
+          <ShieldCheck className="w-10 h-10 text-red-500" />
         </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Selection Unavailable</h2>
-          <p className="text-slate-500">{error || 'Unable to load seating chart at this time.'}</p>
+        <div className="max-w-md">
+          <h2 className="text-3xl font-black text-slate-900 mb-3">Opps! Terjadi Kesalahan</h2>
+          <p className="text-slate-500 font-medium leading-relaxed">{error || 'Kami tidak dapat memuat denah kursi saat ini. Silakan coba beberapa saat lagi.'}</p>
         </div>
         <Link 
           href="/events"
-          className="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg"
+          className="flex items-center gap-3 px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-2xl hover:-translate-y-1 active:translate-y-0"
         >
-          Return to Events
+          <ArrowLeft className="w-5 h-5" />
+          Kembali ke Event
         </Link>
       </div>
     )
   }
 
-  // Group seats by row
-  const rows: Record<string, any[]> = {}
-  seats.forEach(seat => {
-    if (!rows[seat.row]) rows[seat.row] = []
-    rows[seat.row].push(seat)
-  })
-
-  const rowKeys = Object.keys(rows).sort()
-
-  const totalPrice = selectedSeats.length * (show.adultPrice || 0)
+  const currentPerformance = show.performances?.find((p: any) => p.id === performanceId)
 
   return (
-    <main className="pt-10 pb-12 px-6 md:px-12 max-w-[1200px] mx-auto min-h-screen">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-        {/* Seat Selection Area */}
-        <div className="lg:col-span-8 flex flex-col gap-10">
-          <div className="flex flex-col gap-3">
-            <h1 className="text-3xl font-bold text-slate-900">{show.title}</h1>
-            <div className="flex flex-wrap items-center gap-6 text-slate-500 text-sm font-bold uppercase tracking-wider">
-              <span className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-                {new Date(show.performances?.find((p: any) => p.id === performanceId)?.dateTime).toLocaleDateString()}
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">location_on</span>
-                {show.venue?.name}
-              </span>
+    <div className="min-h-screen bg-[#F8FAFC]">
+      {/* Premium Navigation Header */}
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100">
+        <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <Link 
+              href={`/events/${show.slug}`}
+              className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </Link>
+            <div className="h-10 w-[1px] bg-slate-100 hidden md:block"></div>
+            <div>
+              <h1 className="text-xl font-black text-slate-900 leading-none mb-1">{show.title}</h1>
+              <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <span className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-blue-600" /> {show.venue?.name}</span>
+                <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3 text-emerald-500" /> {new Date(currentPerformance?.dateTime).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+              </div>
             </div>
           </div>
 
-          {/* Screen Indicator */}
-          <div className="w-full flex flex-col items-center gap-4 py-4">
-            <div className="h-1 w-3/4 bg-slate-200 rounded-full"></div>
-            <span className="text-[11px] text-slate-400 tracking-[0.3em] uppercase font-bold">Screen</span>
+          <div className="hidden lg:flex items-center gap-8">
+             <div className="flex flex-col items-end">
+               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selected</span>
+               <span className="text-sm font-bold text-slate-900">{selectedSeats.length} Kursi</span>
+             </div>
+             <div className="h-10 w-[1px] bg-slate-100"></div>
+             <div className="flex items-center gap-4">
+                <span className="text-2xl font-black text-slate-900">£{totalPrice.toFixed(2)}</span>
+                <Link 
+                  href={selectedSeats.length > 0 ? `/checkout?performanceId=${performanceId}&showId=${showId}&selections=${encodeURIComponent(JSON.stringify(selectedSeats.map(s => ({ seatId: s.seatId, ticketType: s.ticketType }))))}` : "#"}
+                  className={cn(
+                    "px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl flex items-center gap-3",
+                    selectedSeats.length > 0 
+                    ? "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/30" 
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  )}
+                >
+                  Checkout
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+             </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-[1400px] mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          {/* Left Column: Seat Grid */}
+          <div className="lg:col-span-8">
+            <div className="bg-white rounded-[40px] p-8 md:p-16 shadow-sm border border-slate-100">
+              <SeatGrid
+                seatingLayout={layout}
+                selectedSeats={selectedSeats}
+                bookedSeats={bookedSeats}
+                onSeatSelect={handleSeatSelect}
+                onSeatDeselect={handleSeatDeselect}
+                onTicketTypeChange={handleTicketTypeChange}
+              />
+            </div>
           </div>
 
-          {/* Seat Map */}
-          <div className="flex flex-col items-center gap-10 py-6 overflow-x-auto">
-            <div className="flex flex-col gap-4 select-none min-w-max">
-              {rowKeys.map(rowKey => (
-                <div key={rowKey} className="flex items-center gap-6">
-                  <span className="text-[12px] font-bold text-slate-400 w-4">{rowKey}</span>
-                  <div className="flex gap-2">
-                    {rows[rowKey].map(seat => {
-                      const booked = seat.status === 'booked'
-                      const selected = selectedSeats.find(s => s.seatId === seat.seatId)
-                      return (
-                        <button
-                          key={seat.seatId}
-                          disabled={booked}
-                          onClick={() => toggleSeat(seat)}
-                          className={`w-8 h-8 rounded-lg border transition-all text-[10px] flex items-center justify-center ${
-                            booked ? 'bg-slate-100 border-slate-200 cursor-not-allowed text-slate-300' :
-                            selected ? 'bg-orange-400 border-orange-500 shadow-[0_0_15px_rgba(251,146,60,0.4)] text-white font-bold' :
-                            'bg-white border-teal-500 hover:bg-teal-50 text-slate-400'
-                          }`}
-                        >
-                          {selected ? '✓' : seat.number}
-                        </button>
-                      )
-                    })}
+          {/* Right Column: Details & Mobile Checkout */}
+          <div className="lg:col-span-4 space-y-8">
+            {/* Event Card */}
+            <div className="bg-slate-900 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600 blur-[80px] opacity-20"></div>
+              <div className="relative z-10">
+                <span className="px-3 py-1 bg-blue-600 text-[10px] font-black rounded-full uppercase tracking-widest mb-6 inline-block">
+                  Live Event
+                </span>
+                <h3 className="text-2xl font-black mb-2">{show.title}</h3>
+                <p className="text-slate-400 text-sm font-medium mb-6 leading-relaxed">
+                  {show.description?.substring(0, 100)}...
+                </p>
+                <div className="space-y-4 pt-6 border-t border-white/10">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10">
+                      <Calendar className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Waktu & Tanggal</p>
+                      <p className="text-sm font-bold">{new Date(currentPerformance?.dateTime).toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {new Date(currentPerformance?.dateTime).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10">
+                      <MapPin className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Lokasi Venue</p>
+                      <p className="text-sm font-bold">{show.venue?.name}, {show.venue?.city}</p>
+                    </div>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
 
-            {/* Legend */}
-            <div className="flex gap-10 text-xs font-bold text-slate-500 uppercase tracking-wider">
-              <div className="flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-sm border-2 border-teal-500 bg-white"></div>
-                <span>Available</span>
+            {/* Price Information */}
+            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                 <CreditCard className="w-3 h-3" />
+                 Informasi Harga Tiket
+               </h4>
+               <div className="space-y-4">
+                 <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
+                   <div>
+                     <p className="text-sm font-black text-slate-900">Dewasa</p>
+                     <p className="text-[10px] text-slate-400 font-bold uppercase">Adult Ticket</p>
+                   </div>
+                   <span className="text-lg font-black text-blue-600">£{show.adultPrice.toFixed(2)}</span>
+                 </div>
+                 <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
+                   <div>
+                     <p className="text-sm font-black text-slate-900">Anak</p>
+                     <p className="text-[10px] text-slate-400 font-bold uppercase">Child Ticket</p>
+                   </div>
+                   <span className="text-lg font-black text-emerald-500">£{show.childPrice.toFixed(2)}</span>
+                 </div>
+               </div>
+            </div>
+
+            {/* Help/Support */}
+            <div className="flex items-center gap-4 px-6">
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                <Info className="w-5 h-5" />
               </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-sm border border-slate-200 bg-slate-100"></div>
-                <span>Booked</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-4 h-4 rounded-sm border border-orange-500 bg-orange-400"></div>
-                <span>Selected</span>
-              </div>
+              <p className="text-xs font-medium text-slate-400 leading-snug">
+                Butuh bantuan? Hubungi customer service kami untuk bantuan pemilihan kursi.
+              </p>
             </div>
           </div>
         </div>
+      </main>
 
-        {/* Sidebar */}
-        <aside className="lg:col-span-4 lg:sticky lg:top-24">
-          <div className="bg-white border border-slate-100 rounded-2xl p-8 flex flex-col gap-8 shadow-xl">
-            <div className="border-b border-slate-100 pb-4">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-900">Order Summary</h2>
-            </div>
-            
-            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-              {selectedSeats.length > 0 ? (
-                selectedSeats.map(seat => (
-                  <div key={seat.seatId} className="flex justify-between items-center">
-                    <span className="text-slate-600 text-sm font-medium">Seat {seat.row}{seat.number}</span>
-                    <span className="font-bold text-slate-900">${show.adultPrice.toFixed(2)}</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-slate-400 text-sm italic">No seats selected</p>
-              )}
-            </div>
-
-            <div className="border-t border-slate-100 pt-6">
-              <div className="flex justify-between items-end">
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-teal-600 mb-1">Total Amount</span>
-                  <span className="text-3xl font-bold text-slate-900">
-                    ${totalPrice.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <Link 
-              href={selectedSeats.length > 0 ? `/checkout?performanceId=${performanceId}&showId=${showId}&seats=${selectedSeats.map(s => s.seatId).join(',')}` : "#"}
-              className={`w-full py-4 rounded-xl font-bold text-sm uppercase tracking-widest text-center transition-all shadow-lg ${
-                selectedSeats.length > 0 
-                ? 'bg-teal-600 text-white hover:bg-teal-700 active:scale-[0.98]' 
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              Confirm Selection
-            </Link>
+      {/* Mobile Sticky Checkout */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-6 bg-white border-t border-slate-100 z-50">
+        <div className="flex items-center justify-between gap-6">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Pembayaran</p>
+            <p className="text-2xl font-black text-slate-900">£{totalPrice.toFixed(2)}</p>
           </div>
-        </aside>
+          <Link 
+            href={selectedSeats.length > 0 ? `/checkout?performanceId=${performanceId}&showId=${showId}&selections=${encodeURIComponent(JSON.stringify(selectedSeats.map(s => ({ seatId: s.seatId, ticketType: s.ticketType }))))}` : "#"}
+            className={cn(
+              "flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl flex items-center justify-center gap-3 text-center",
+              selectedSeats.length > 0 
+              ? "bg-blue-600 text-white hover:bg-blue-700" 
+              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+            )}
+          > 
+            Lanjut ke Checkout
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
       </div>
-    </main>
+    </div>
   )
 }
 
 export default function SeatSelectionPage() {
   return (
-    <Suspense fallback={<div>Loading selection...</div>}>
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+      </div>
+    }>
       <SeatSelectionContent />
     </Suspense>
   )

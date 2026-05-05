@@ -3,14 +3,18 @@
 export interface Seat {
   id: string;
   row: string;
-  number: string;
+  number: string | number;
+  seat_number: string;
+  status: 'available' | 'booked' | 'maintenance';
+  category?: string;
   section?: string;
-  isAccessible: boolean;
-  isWheelchairSpace: boolean;
+  isAccessible?: boolean;
+  isWheelchairSpace?: boolean;
   notes?: string;
-  seatingLayoutId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  seatingLayoutId?: string;
+  show_id?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface SeatingLayout {

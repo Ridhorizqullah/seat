@@ -30,7 +30,7 @@ export default function SignInPage() {
         if (role === 'ADMIN' || role === 'STAFF') {
           window.location.href = '/admin'
         } else {
-          window.location.href = '/'
+          window.location.href = '/tickets'
         }
       } else {
         setError(data.message || 'Email or password is incorrect')

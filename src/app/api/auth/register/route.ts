@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseService } from '@/lib/supabase'
 import { randomUUID } from 'crypto'
+import * as bcrypt from 'bcryptjs'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,35 +11,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'All fields are required' }, { status: 400 })
     }
 
-    // Cek apakah email sudah ada di customers atau users
-    const { data: existingCustomer } = await supabase.from('customers').select('id').eq('email', email).single()
-    const { data: existingUser } = await supabase.from('users').select('id').eq('email', email).single()
+    // 1. Hash password
+    const salt = await bcrypt.genSalt(10)
+    const hashedPassword = await bcrypt.hash(password, salt)
 
-    if (existingCustomer || existingUser) {
-      return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 409 })
-    }
-
-    // Karena tidak boleh mengubah schema dan customer mungkin tidak ada password, kita asumsikan simpan info basic.
-    const { data: newCustomer, error } = await supabase
-      .from('customers')
+    // 2. Insert into users table using service role to bypass RLS
+    const { data: newUser, error: userError } = await supabaseService
+      .from('users')
       .insert({
         id: randomUUID(),
         email,
-        firstName,
-        lastName,
+        name: `${firstName} ${lastName}`,
+        hashedPassword,
+        role: 'CUSTOMER',
+        organizationId: '6694386f-86bf-4854-b930-aa42ee66f7c7', // Primary organization
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
-      .select('email')
+      .select('email, role')
       .single()
 
-    if (error) {
-      throw new Error(error.message)
+    if (userError) {
+      throw new Error(userError.message)
     }
 
-    const response = NextResponse.json({ success: true, role: 'CUSTOMER', email: newCustomer.email })
-    response.cookies.set('user_email', newCustomer.email, { path: '/' })
-    response.cookies.set('user_role', 'CUSTOMER', { path: '/' })
+    // 3. Optional: Create/Update customer record for booking info
+    await supabaseService.from('customers').upsert({
+      id: randomUUID(), // Ensure an ID if creating new
+      email,
+      firstName,
+      lastName,
+      updatedAt: new Date().toISOString()
+    }, { onConflict: 'email' })
+
+    const response = NextResponse.json({ success: true, role: 'CUSTOMER', email: newUser.email })
+    
+    // Set cookies
+    const cookieOptions = {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7 // 7 days
+    }
+    response.cookies.set('user_email', newUser.email, cookieOptions)
+    response.cookies.set('user_role', 'CUSTOMER', cookieOptions)
 
     return response
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseService } from '@/lib/supabase'
 import { randomUUID } from 'crypto'
 
 
@@ -227,12 +227,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, status: 'error', message: 'Unauthorized' }, { status: 401 })
     }
 
-    let query = supabase
+    let query = supabaseService
       .from('bookings')
       .select(`
         *,
         customers(*),
-        performances(*, shows(*, venues(*))),
+        performances!inner(*, shows!inner(*, venues(*))),
         booking_items(*, seats(*))
       `)
 
@@ -242,6 +242,9 @@ export async function GET(request: NextRequest) {
          return NextResponse.json({ success: false, status: 'error', message: 'Forbidden' }, { status: 403 })
       }
       query = query.eq('customers.email', session.email)
+    } else if (session.organizationId) {
+      // Admin/Staff: Filter by their organization
+      query = query.eq('performances.shows.organizationId', session.organizationId)
     } else if (customerId) {
       query = query.eq('customerId', customerId)
     }

@@ -1,8 +1,19 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '../../lib/utils'
 import { Seat, SeatSelection, TicketType, SeatingLayout } from '../../types'
+import { 
+  Accessibility, 
+  User, 
+  Baby, 
+  Heart, 
+  Trash2, 
+  Info,
+  ChevronRight,
+  Armchair
+} from 'lucide-react'
 
 interface SeatGridProps {
   seatingLayout: SeatingLayout
@@ -10,13 +21,9 @@ interface SeatGridProps {
   onSeatSelect: (seat: Seat, ticketType: TicketType) => void
   onSeatDeselect: (seatId: string) => void
   onTicketTypeChange: (seatId: string, ticketType: TicketType) => void
-  bookedSeats: string[] // Array of seat IDs that are already booked
-  prices: {
-    adult: number
-    child: number
-    concession: number
-  }
+  bookedSeats: string[]
   className?: string
+  readOnly?: boolean
 }
 
 interface SeatComponentProps {
@@ -26,6 +33,7 @@ interface SeatComponentProps {
   onSelect: () => void
   onDeselect: () => void
   selectedTicketType?: TicketType
+  readOnly?: boolean
 }
 
 const SeatComponent: React.FC<SeatComponentProps> = ({
@@ -34,34 +42,28 @@ const SeatComponent: React.FC<SeatComponentProps> = ({
   isBooked,
   onSelect,
   onDeselect,
-  selectedTicketType
+  selectedTicketType,
+  readOnly = false
 }) => {
-  const getSeatClasses = () => {
-    const baseClasses = 'w-8 h-8 rounded-t-lg border-2 cursor-pointer transition-colors flex items-center justify-center text-xs font-medium'
-
-    if (isBooked) {
-      return cn(baseClasses, 'bg-red-200 border-red-500 text-red-800 cursor-not-allowed')
-    }
-
+  const getSeatStyles = () => {
+    if (isBooked) return 'bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300'
+    
     if (isSelected) {
-      const ticketColors = {
-        [TicketType.ADULT]: 'bg-blue-500 border-blue-600 text-white',
-        [TicketType.CHILD]: 'bg-green-500 border-green-600 text-white',
-        [TicketType.CONCESSION]: 'bg-purple-500 border-purple-600 text-white'
+      switch (selectedTicketType) {
+        case TicketType.ADULT: return 'bg-blue-600 text-white border-blue-700 shadow-blue-500/50'
+        case TicketType.CHILD: return 'bg-emerald-500 text-white border-emerald-600 shadow-emerald-500/50'
+        case TicketType.CONCESSION: return 'bg-purple-600 text-white border-purple-700 shadow-purple-500/50'
+        default: return 'bg-blue-600 text-white border-blue-700'
       }
-      return cn(baseClasses, ticketColors[selectedTicketType || TicketType.ADULT])
     }
 
-    if (seat.isAccessible) {
-      return cn(baseClasses, 'bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-200')
-    }
-
-    return cn(baseClasses, 'bg-gray-100 border-gray-300 text-gray-800 hover:bg-gray-200')
+    if (seat.isAccessible) return 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100'
+    
+    return 'bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:text-blue-600'
   }
 
   const handleClick = () => {
-    if (isBooked) return
-
+    if (isBooked || readOnly) return
     if (isSelected) {
       onDeselect()
     } else {
@@ -70,131 +72,130 @@ const SeatComponent: React.FC<SeatComponentProps> = ({
   }
 
   return (
-    <div
+    <motion.div
+      whileHover={!isBooked && !readOnly ? { scale: 1.15, y: -2 } : {}}
+      whileTap={!isBooked && !readOnly ? { scale: 0.95 } : {}}
       onClick={handleClick}
-      className={getSeatClasses()}
-      title={`${seat.row}${seat.number}${seat.isAccessible ? ' (Accessible)' : ''}${isBooked ? ' (Booked)' : ''}`}
+      className={cn(
+        'relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl border-2 transition-all duration-300 flex items-center justify-center cursor-pointer shadow-sm overflow-hidden',
+        getSeatStyles(),
+        isSelected && 'shadow-lg border-opacity-50 ring-2 ring-white ring-opacity-20'
+      )}
+      title={`${seat.row}${seat.number}`}
     >
-      {seat.number}
-    </div>
+      <Armchair className={cn("w-4 h-4 sm:w-5 sm:h-5", isBooked ? "opacity-30" : "opacity-100")} />
+      
+      {isSelected && (
+        <motion.div 
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full border border-current"
+        />
+      )}
+      
+      {seat.isAccessible && !isSelected && !isBooked && (
+        <Accessibility className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 opacity-50" />
+      )}
+    </motion.div>
   )
 }
 
-interface TicketTypeSelectorProps {
+const TicketTypeSelector: React.FC<{
   selectedSeats: SeatSelection[]
   onTicketTypeChange: (seatId: string, ticketType: TicketType) => void
   onSeatDeselect: (seatId: string) => void
-  prices: {
-    adult: number
-    child: number
-    concession: number
-  }
-}
-
-const TicketTypeSelector: React.FC<TicketTypeSelectorProps> = ({
-  selectedSeats,
-  onTicketTypeChange,
-  onSeatDeselect,
-  prices
-}) => {
+}> = ({ selectedSeats, onTicketTypeChange, onSeatDeselect }) => {
   if (selectedSeats.length === 0) return null
 
   return (
-    <div className="mt-6 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-900">Selected Seats</h3>
-        <span className="text-sm text-gray-600 bg-blue-50 px-2 py-1 rounded">
-          {selectedSeats.length} seat{selectedSeats.length !== 1 ? 's' : ''}
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-10 glass-panel overflow-hidden"
+    >
+      <div className="bg-gradient-to-r from-blue-600/5 to-purple-600/5 p-4 border-b border-white/20 flex justify-between items-center">
+        <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-purple-700">
+          Ringkasan Kursi
+        </h3>
+        <span className="bg-white/50 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-blue-700 border border-blue-100">
+          {selectedSeats.length} Kursi Terpilih
         </span>
       </div>
 
-      <div className="space-y-3">
-        {selectedSeats.map((selection) => (
-          <div key={selection.seatId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-6 p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
-            {/* Left side: Seat info and ticket selector */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
-              {/* Seat indicator */}
-              <div className="flex items-center gap-3 sm:min-w-[120px]">
-                <div className="w-8 h-8 bg-blue-100 border-2 border-blue-300 rounded-t flex items-center justify-center text-xs font-medium text-blue-800">
-                  {selection.seat.number}
+      <div className="divide-y divide-slate-100 p-2">
+        <AnimatePresence mode="popLayout">
+          {selectedSeats.map((selection) => (
+            <motion.div 
+              key={selection.seatId}
+              layout
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors rounded-lg group"
+            >
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md transition-all duration-500",
+                  selection.ticketType === TicketType.ADULT && "bg-blue-600",
+                  selection.ticketType === TicketType.CHILD && "bg-emerald-500",
+                  selection.ticketType === TicketType.CONCESSION && "bg-purple-600"
+                )}>
+                  <span className="font-bold text-sm">{selection.seat.row}{selection.seat.number}</span>
                 </div>
-                <div>
-                  <div className="font-medium text-gray-900">
-                    Row {selection.seat.row}, Seat {selection.seat.number}
+                
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selection.ticketType}
+                      onChange={(e) => onTicketTypeChange(selection.seatId, e.target.value as TicketType)}
+                      className="bg-transparent border-none p-0 pr-8 text-sm font-bold text-slate-800 focus:ring-0 cursor-pointer appearance-none"
+                    >
+                      <option value={TicketType.ADULT}>Tiket Dewasa</option>
+                      <option value={TicketType.CHILD}>Tiket Anak</option>
+                      <option value={TicketType.CONCESSION}>Tiket Konsesi</option>
+                    </select>
+                    <ChevronRight className="w-3 h-3 text-slate-400 -ml-6" />
                   </div>
-                  {selection.seat.isAccessible && (
-                    <div className="text-xs text-blue-600 font-medium">Accessible</div>
-                  )}
+                  <p className="text-xs text-slate-500">Kategori: {selection.seat.category || 'Reguler'}</p>
                 </div>
               </div>
 
-              {/* Ticket type selector */}
-              <div className="flex items-center gap-2 sm:w-48">
-                <label htmlFor={`ticket-type-${selection.seatId}`} className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                  Ticket Type:
-                </label>
-                <select
-                  id={`ticket-type-${selection.seatId}`}
-                  value={selection.ticketType}
-                  onChange={(e) => onTicketTypeChange(selection.seatId, e.target.value as TicketType)}
-                  className="flex-1 sm:flex-none sm:w-32 px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 cursor-pointer focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  aria-label={`Ticket type for seat ${selection.seat.row}${selection.seat.number}`}
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <p className="text-sm font-bold text-slate-900">£{selection.price.toFixed(2)}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Harga Satuan</p>
+                </div>
+                
+                <motion.button
+                  whileHover={{ scale: 1.1, backgroundColor: '#fee2e2' }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => onSeatDeselect(selection.seatId)}
+                  className="p-2 text-slate-300 group-hover:text-red-500 transition-colors rounded-xl"
                 >
-                  <option className="text-gray-800" value={TicketType.ADULT}>Adult (£{prices.adult.toFixed(2)})</option>
-                  <option className="text-gray-800" value={TicketType.CHILD}>Child (£{prices.child.toFixed(2)})</option>
-                  <option className="text-gray-800" value={TicketType.CONCESSION}>Concession (£{prices.concession.toFixed(2)})</option>
-                </select>
+                  <Trash2 className="w-5 h-5" />
+                </motion.button>
               </div>
-            </div>
-
-            {/* Right side: Price and remove button */}
-            <div className="flex items-center justify-between sm:justify-end gap-4">
-              {/* Price display */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">Price:</span>
-                <span className="text-lg font-semibold text-gray-900">
-                  £{selection.price.toFixed(2)}
-                </span>
-              </div>
-
-              {/* Remove button */}
-              <button
-                onClick={() => onSeatDeselect(selection.seatId)}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors focus:ring-2 focus:ring-red-500 focus:outline-none"
-                title={`Remove seat ${selection.seat.row}${selection.seat.number}`}
-                aria-label={`Remove seat ${selection.seat.row}${selection.seat.number} from selection`}
-                type="button"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                <span className="hidden sm:inline">Remove</span>
-              </button>
-            </div>
-          </div>
-        ))}
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
-      {/* Total section */}
-      <div className="mt-6 pt-4 border-t border-gray-200">
-        <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg">
+      <div className="bg-slate-900 p-6 text-white">
+        <div className="flex justify-between items-center">
           <div>
-            <div className="text-sm font-medium text-gray-700">Total Amount</div>
-            <div className="text-xs text-gray-600">
-              {selectedSeats.length} ticket{selectedSeats.length !== 1 ? 's' : ''}
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">Total Pembayaran</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black">£{selectedSeats.reduce((sum, s) => sum + s.price, 0).toFixed(2)}</span>
+              <span className="text-slate-400 text-sm">GBP</span>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-blue-900">
-              £{selectedSeats.reduce((sum, seat) => sum + seat.price, 0).toFixed(2)}
-            </div>
-            <div className="text-xs text-blue-700">
-              inc. all fees
-            </div>
+          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 bg-white/5 px-3 py-2 rounded-lg border border-white/10">
+            <Info className="w-3 h-3" />
+            TERMASUK PPN & BIAYA LAYANAN
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -205,73 +206,87 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
   onSeatDeselect,
   onTicketTypeChange,
   bookedSeats,
-  prices,
-  className
+  className,
+  readOnly = false
 }) => {
   const [defaultTicketType, setDefaultTicketType] = useState<TicketType>(TicketType.ADULT)
 
-  // Group seats by row for rendering
   const seatsByRow = useMemo(() => {
     const grouped: { [row: string]: Seat[] } = {}
     seatingLayout.seats.forEach(seat => {
-      if (!grouped[seat.row]) {
-        grouped[seat.row] = []
-      }
+      if (!grouped[seat.row]) grouped[seat.row] = []
       grouped[seat.row].push(seat)
     })
-
-    // Sort seats within each row by number
     Object.keys(grouped).forEach(row => {
-      grouped[row].sort((a, b) => parseInt(a.number) - parseInt(b.number))
+      grouped[row].sort((a, b) => {
+        const numA = typeof a.number === 'string' ? parseInt(a.number) : a.number
+        const numB = typeof b.number === 'string' ? parseInt(b.number) : b.number
+        return numA - numB
+      })
     })
-
     return grouped
   }, [seatingLayout.seats])
 
   const sortedRows = Object.keys(seatsByRow).sort()
 
-  const handleSeatSelect = (seat: Seat) => {
-    onSeatSelect(seat, defaultTicketType)
-  }
-
-
-
   return (
-    <div className={cn('w-full', className)}>
-      {/* Default ticket type selector */}
-      <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-        <label className="block text-sm font-medium text-gray-800 mb-2">
-          Default Ticket Type for Selection:
-        </label>
-        <select
-          value={defaultTicketType}
-          onChange={(e) => setDefaultTicketType(e.target.value as TicketType)}
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800"
-        >
-          <option className="text-gray-800" value={TicketType.ADULT}>Adult (£{prices.adult.toFixed(2)})</option>
-          <option className="text-gray-800" value={TicketType.CHILD}>Child (£{prices.child.toFixed(2)})</option>
-          <option className="text-gray-800" value={TicketType.CONCESSION}>Concession (£{prices.concession.toFixed(2)})</option>
-        </select>
+    <div className={cn('w-full max-w-5xl mx-auto', className)}>
+      {/* Immersive Header */}
+      <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+        <div className="space-y-1">
+          <h2 className="text-3xl font-black tracking-tight text-slate-900">Pilih Kursi Anda</h2>
+          <p className="text-slate-500 font-medium flex items-center gap-2">
+            <Armchair className="w-4 h-4" /> 
+            {seatingLayout.name} • {seatingLayout.seats.length} Total Kursi
+          </p>
+        </div>
+
+        {!readOnly && (
+          <div className="bg-white p-2 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-2">
+            <div className="px-4 py-2 text-xs font-black text-slate-400 uppercase tracking-wider">Default:</div>
+            {[
+              { type: TicketType.ADULT, icon: User, label: 'Dewasa' },
+              { type: TicketType.CHILD, icon: Baby, label: 'Anak' },
+              { type: TicketType.CONCESSION, icon: Heart, label: 'Konsesi' }
+            ].map((t) => (
+              <button
+                key={t.type}
+                onClick={() => setDefaultTicketType(t.type)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all",
+                  defaultTicketType === t.type 
+                    ? "bg-slate-900 text-white shadow-lg" 
+                    : "text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                <t.icon className="w-4 h-4" />
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Stage indicator */}
-      <div className="text-center mb-8">
-        <div className="inline-block px-8 py-2 bg-gray-800 text-white rounded-t-lg">
-          STAGE
+      {/* Stage Visualization */}
+      <div className="relative mb-20">
+        <div className="w-full h-2 bg-slate-200 rounded-full shadow-inner"></div>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-4">
+          <div className="bg-slate-900 text-white px-12 py-3 rounded-b-3xl text-sm font-black tracking-[0.4em] shadow-2xl">
+            STAGE / PANGGUNG
+          </div>
         </div>
+        <div className="w-3/4 h-24 mx-auto mt-2 bg-gradient-to-b from-slate-100 to-transparent rounded-t-[100px] opacity-50"></div>
       </div>
 
       {/* Seat grid */}
-      <div className="flex flex-col items-center gap-2 mb-6">
+      <div className="flex flex-col items-center gap-4 mb-16 overflow-x-auto pb-4 custom-scrollbar">
         {sortedRows.map(row => (
-          <div key={row} className="flex items-center gap-2">
-            {/* Row label */}
-            <div className="w-8 text-center font-medium text-gray-800 mr-2">
-              {row}
+          <div key={row} className="flex items-center gap-6 group">
+            <div className="w-6 text-xs font-black text-slate-300 group-hover:text-slate-600 transition-colors uppercase">
+              Row {row}
             </div>
 
-            {/* Seats in row */}
-            <div className="flex gap-1">
+            <div className="flex gap-2 p-1">
               {seatsByRow[row].map(seat => {
                 const selection = selectedSeats.find(s => s.seatId === seat.id)
                 return (
@@ -280,52 +295,68 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
                     seat={seat}
                     isSelected={!!selection}
                     isBooked={bookedSeats.includes(seat.id)}
-                    onSelect={() => handleSeatSelect(seat)}
+                    onSelect={() => onSeatSelect(seat, defaultTicketType)}
                     onDeselect={() => onSeatDeselect(seat.id)}
                     selectedTicketType={selection?.ticketType}
+                    readOnly={readOnly}
                   />
                 )
               })}
+            </div>
+
+            <div className="w-6 text-xs font-black text-slate-300 group-hover:text-slate-600 transition-colors uppercase">
+              {row}
             </div>
           </div>
         ))}
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap justify-center gap-4 mb-6 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-gray-100 border-2 border-gray-300 rounded-t"></div>
-          <p className="text-gray-800">Available</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-100 border-2 border-blue-300 rounded-t"></div>
-          <p className="text-gray-800">Accessible</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-500 border-2 border-blue-600 rounded-t"></div>
-          <p className="text-gray-800">Adult</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-500 border-2 border-green-600 rounded-t"></div>
-          <p className="text-gray-800">Child</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-purple-500 border-2 border-purple-600 rounded-t"></div>
-          <p className="text-gray-800">Concession</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-200 border-2 border-red-500 rounded-t"></div>
-          <p className="text-gray-800">Booked</p>
-        </div>
+      <div className="flex flex-wrap justify-center gap-8 py-8 border-y border-slate-100 mb-10">
+        {[
+          { color: 'bg-white border-slate-200', label: 'Tersedia' },
+          { color: 'bg-sky-50 border-sky-200', label: 'Aksesibel' },
+          { color: 'bg-blue-600 border-blue-700', label: 'Dewasa' },
+          { color: 'bg-emerald-500 border-emerald-600', label: 'Anak' },
+          { color: 'bg-purple-600 border-purple-700', label: 'Konsesi' },
+          { color: 'bg-gray-200 border-gray-300', label: 'Terisi' }
+        ].map((l) => (
+          <div key={l.label} className="flex items-center gap-3">
+            <div className={cn("w-5 h-5 rounded-md border-2 shadow-sm", l.color)}></div>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{l.label}</span>
+          </div>
+        ))}
       </div>
 
-      {/* Selected seats summary */}
-      <TicketTypeSelector
-        selectedSeats={selectedSeats}
-        onTicketTypeChange={onTicketTypeChange}
-        onSeatDeselect={onSeatDeselect}
-        prices={prices}
-      />
+      {/* Summary */}
+      {!readOnly && (
+        <TicketTypeSelector
+          selectedSeats={selectedSeats}
+          onTicketTypeChange={onTicketTypeChange}
+          onSeatDeselect={onSeatDeselect}
+        />
+      )}
+
+      <style jsx global>{`
+        .glass-panel {
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 24px;
+          box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   )
 }

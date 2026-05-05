@@ -9,6 +9,25 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPerformanceId, setSelectedPerformanceId] = useState<string | null>(null)
+  const [user, setUser] = useState<{ email: string; role: string } | null>(null)
+
+  useEffect(() => {
+    // Check if user is logged in via API
+    const checkUser = async () => {
+      try {
+        const res = await fetch('/api/auth/me')
+        const data = await res.json()
+        if (data.success) {
+          setUser(data.data)
+        } else {
+          setUser(null)
+        }
+      } catch {
+        setUser(null)
+      }
+    }
+    checkUser()
+  }, [])
 
   useEffect(() => {
     async function fetchEvent() {
@@ -207,13 +226,22 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
               </div>
 
-              <Link 
-                href={selectedPerformanceId ? `/seat-selection?performanceId=${selectedPerformanceId}&showId=${event.id}` : "#"}
-                className={`w-full bg-teal-600 text-white py-4 rounded-xl font-bold uppercase tracking-tight flex items-center justify-center gap-3 hover:bg-teal-700 transition-all ${!selectedPerformanceId ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <span className="material-symbols-outlined">event_seat</span>
-                Select Seats
-              </Link>
+              {user ? (
+                <Link 
+                  href={selectedPerformanceId ? `/seat-selection?performanceId=${selectedPerformanceId}&showId=${event.id}` : "#"}
+                  className={`w-full bg-teal-600 text-white py-4 rounded-xl font-bold uppercase tracking-tight flex items-center justify-center gap-3 hover:bg-teal-700 transition-all ${!selectedPerformanceId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span className="material-symbols-outlined">event_seat</span>
+                  Select Seats
+                </Link>
+              ) : (
+                <Link 
+                  href={`/login?callbackUrl=/events/${event.id}&message=Please login to continue booking`}
+                  className="w-full bg-slate-100 text-slate-900 py-4 rounded-xl font-bold uppercase tracking-tight flex items-center justify-center gap-3 hover:bg-slate-200 transition-all"
+                >
+                  Login to Book
+                </Link>
+              )}
               
               <p className="text-center text-[10px] text-slate-400 mt-4 uppercase font-bold tracking-wider">
                 * Tickets are non-refundable 24h before event start.

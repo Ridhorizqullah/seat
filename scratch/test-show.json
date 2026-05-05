@@ -1,0 +1,11 @@
+{
+  "title": "Automated Test Show",
+  "description": "A show created during automated testing",
+  "genre": "Test",
+  "duration": 90,
+  "ageRating": "U",
+  "status": "PUBLISHED",
+  "adultPrice": 25.00,
+  "childPrice": 15.00,
+  "concessionPrice": 20.00
+}

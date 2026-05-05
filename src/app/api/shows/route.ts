@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseService } from '@/lib/supabase'
 import { randomUUID } from 'crypto'
+import { getServerSession } from '@/lib/auth-server'
 
 interface CreateShowRequest {
   title: string
@@ -30,11 +31,34 @@ export async function POST(request: NextRequest) {
     // Generate slug from title
     const slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
+    const session = await getServerSession()
+    if (!session || !session.organizationId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized: No organization associated with this account'
+      }, { status: 401 })
+    }
+
+    // Get the first available venue and seating layout for this organization
+    const { data: venue } = await supabase
+      .from('venues')
+      .select('id')
+      .eq('organizationId', session.organizationId)
+      .limit(1)
+      .single()
+
+    const { data: layout } = await supabase
+      .from('seating_layouts')
+      .select('id')
+      .eq('venueId', venue?.id || '')
+      .limit(1)
+      .single()
+
     // Create the show
     const showId = randomUUID()
     const now = new Date().toISOString()
 
-    const { data: show, error } = await supabase
+    const { data: show, error } = await supabaseService
       .from('shows')
       .insert({
         id: showId,
@@ -49,10 +73,9 @@ export async function POST(request: NextRequest) {
         childPrice: body.childPrice,
         concessionPrice: body.concessionPrice,
         status: body.status || 'DRAFT',
-        // Set default IDs for required fields - these should be configurable in a real app
-        organizationId: '550e8400-e29b-41d4-a716-446655440000', // Demo org ID
-        venueId: 'a550e840-e29b-41d4-a716-446655440000', // Demo venue ID
-        seatingLayoutId: '869f0aca-0611-4b8b-bf16-b9356854b35a', // Demo seating layout ID
+        organizationId: session.organizationId,
+        venueId: venue?.id || 'a550e840-e29b-41d4-a716-446655440000', // Fallback to demo if none found
+        seatingLayoutId: layout?.id || '869f0aca-0611-4b8b-bf16-b9356854b35a', // Fallback to demo if none found
         createdAt: now,
         updatedAt: now
       })
@@ -63,6 +86,36 @@ export async function POST(request: NextRequest) {
       console.error('Error creating show:', error)
       throw new Error(`Database error: ${error.message}`)
     }
+
+    // --- AUTOMATIC SEAT GENERATION (Admin Shows Workflow) ---
+    // Generate 5 rows (A-E) with 10 seats each (50 seats total)
+    const rows = ['A', 'B', 'C', 'D', 'E']
+    const seatsToInsert = []
+
+    for (const row of rows) {
+      for (let i = 1; i <= 10; i++) {
+        seatsToInsert.push({
+          show_id: showId,
+          row: row,
+          number: i,
+          seat_number: `${row}${i}`,
+          status: 'available',
+          category: 'Reguler'
+        })
+      }
+    }
+
+    const { error: seatError } = await supabaseService
+      .from('seats')
+      .insert(seatsToInsert)
+
+    if (seatError) {
+      console.error("Gagal generate kursi:", seatError)
+      // We don't necessarily want to fail the whole show creation if seats fail, 
+      // but it's better to log it or handle it. 
+      // For now, let's just log it as per the workflow example.
+    }
+    // ---------------------------------------------------------
 
     return NextResponse.json({
       success: true,
@@ -82,11 +135,12 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const published = searchParams.get('published')
-    const organizationId = searchParams.get('organizationId')
     const search = searchParams.get('search')
 
-    // Build query
-    let query = supabase
+    const session = await getServerSession()
+    
+    // Build query using service role to bypass RLS and see relevant data
+    let query = supabaseService
       .from('shows')
       .select(`
         id,
@@ -110,16 +164,18 @@ export async function GET(request: NextRequest) {
           notes,
           createdAt,
           updatedAt
-        )
+        ),
+        seats:seats!show_id(count)
       `)
+
+    // If it's an admin/staff request, filter by their organization
+    if (session?.organizationId) {
+      query = query.eq('organizationId', session.organizationId)
+    }
 
     // Apply filters - show is published if status is PUBLISHED
     if (published === 'true') {
       query = query.eq('status', 'PUBLISHED')
-    }
-
-    if (organizationId) {
-      query = query.eq('organizationId', organizationId)
     }
 
     if (search) {

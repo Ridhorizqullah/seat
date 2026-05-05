@@ -3,15 +3,28 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { getUser, logout } from '@/lib/auth-client'
+import { logout } from '@/lib/auth-client'
 
 export default function UserNavbar() {
   const pathname = usePathname()
   const [user, setUser] = useState<{ email: string; role: string } | null>(null)
 
   useEffect(() => {
-    // Check if user is logged in
-    setUser(getUser())
+    // Check if user is logged in via API
+    const checkUser = async () => {
+      try {
+        const res = await fetch('/api/auth/me')
+        const data = await res.json()
+        if (data.success) {
+          setUser(data.data)
+        } else {
+          setUser(null)
+        }
+      } catch {
+        setUser(null)
+      }
+    }
+    checkUser()
   }, [pathname])
 
   const navLinks = [

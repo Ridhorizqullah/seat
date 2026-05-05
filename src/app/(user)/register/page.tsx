@@ -2,10 +2,8 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 export default function SignUpPage() {
-  const router = useRouter()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -28,8 +26,7 @@ export default function SignUpPage() {
       const data = await res.json()
 
       if (data.success) {
-        router.push('/')
-        router.refresh()
+        window.location.href = '/tickets'
       } else {
         setError(data.error || 'Failed to register')
       }

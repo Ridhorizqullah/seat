@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-import { auth } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { supabaseService } from '@/lib/supabase'
+import { auth } from '@/lib/auth' 
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     // Check authentication
     const session = await auth()
@@ -15,11 +15,17 @@ export async function GET(_request: NextRequest) {
     }
 
     // Verify user is admin
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseService
       .from('users')
       .select('role, organizationId')
       .eq('email', session.user.email)
       .single()
+
+    console.log('Admin Dashboard Request:', { 
+      email: session.user.email, 
+      organizationId: user?.organizationId,
+      role: user?.role 
+    })
 
     if (userError || !user || user.role !== 'ADMIN') {
       return NextResponse.json({
@@ -28,7 +34,7 @@ export async function GET(_request: NextRequest) {
       }, { status: 403 })
     }
     // Fetch all bookings with customer and performance details
-    const { data: bookings, error: bookingsError } = await supabase
+    const { data: bookings, error: bookingsError } = await supabaseService
       .from('bookings')
       .select(`
         id,
@@ -37,23 +43,25 @@ export async function GET(_request: NextRequest) {
         totalAmount,
         bookingFee,
         createdAt,
-        customers (
+        customer:customers (
           id,
           firstName,
           lastName,
           email,
           phone
         ),
-        performances (
+        performance:performances (
           id,
           dateTime,
-          isMatinee,
-          shows (
-            id,
-            title
-          )
+          isMatinee
+        ),
+        show:shows!inner (
+          id,
+          title,
+          organizationId
         )
       `)
+      .eq('shows.organizationId', user.organizationId)
       .order('createdAt', { ascending: false })
 
     if (bookingsError) {
@@ -62,12 +70,13 @@ export async function GET(_request: NextRequest) {
     }
 
     // Fetch all shows with performances
-    const { data: shows, error: showsError } = await supabase
+    const { data: shows, error: showsError } = await supabaseService
       .from('shows')
       .select(`
         id,
         title,
         status,
+        organizationId,
         performances (
           id,
           dateTime,
@@ -75,6 +84,7 @@ export async function GET(_request: NextRequest) {
           notes
         )
       `)
+      .eq('organizationId', user.organizationId)
       .order('createdAt', { ascending: false })
 
     if (showsError) {
@@ -101,7 +111,7 @@ export async function GET(_request: NextRequest) {
         },
         // Add booking data for this performance
         bookings: bookings?.filter(booking =>
-          booking.performances && (booking.performances as any).id === perf.id
+          booking.performance && (booking.performance as any).id === perf.id
         ).map(booking => ({
           id: booking.id,
           totalAmount: booking.totalAmount,
@@ -125,21 +135,21 @@ export async function GET(_request: NextRequest) {
       bookingFee: booking.bookingFee,
       status: booking.status,
       createdAt: booking.createdAt,
-      customer: booking.customers ? {
-        id: (booking.customers as any).id,
-        firstName: (booking.customers as any).firstName,
-        lastName: (booking.customers as any).lastName,
-        email: (booking.customers as any).email,
-        phone: (booking.customers as any).phone
+      customer: booking.customer ? {
+        id: (booking.customer as any).id,
+        firstName: (booking.customer as any).firstName,
+        lastName: (booking.customer as any).lastName,
+        email: (booking.customer as any).email,
+        phone: (booking.customer as any).phone
       } : null,
-      show: (booking.performances as any)?.shows ? {
-        id: (booking.performances as any).shows.id,
-        title: (booking.performances as any).shows.title
+      show: (booking.show as any) ? {
+        id: (booking.show as any).id,
+        title: (booking.show as any).title
       } : null,
-      performance: booking.performances ? {
-        id: (booking.performances as any).id,
-        dateTime: (booking.performances as any).dateTime,
-        isMatinee: (booking.performances as any).isMatinee
+      performance: booking.performance ? {
+        id: (booking.performance as any).id,
+        dateTime: (booking.performance as any).dateTime,
+        isMatinee: (booking.performance as any).isMatinee
       } : null
     })) || []
 

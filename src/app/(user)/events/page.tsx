@@ -1,35 +1,37 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-
-const categories = [
-  { name: 'Electronic', icon: 'bolt', count: 24, active: true },
-  { name: 'Digital Art', icon: 'brush', count: 12 },
-  { name: 'Tech', icon: 'memory', count: 8 },
-  { name: 'Festivals', icon: 'festival', count: 15 },
-]
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  Search, 
+  Filter, 
+  MapPin, 
+  ChevronRight, 
+  Star, 
+  Clock
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function EventListPage() {
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedGenre, setSelectedGenre] = useState('All')
 
   useEffect(() => {
     async function fetchEvents() {
       try {
         setLoading(true)
-        setError(null)
         const response = await fetch('/api/shows?published=true')
         const data = await response.json()
         if (data.success) {
           setEvents(data.data)
-        } else {
-          setError(data.message || 'Failed to load events')
         }
       } catch (err) {
         console.error('Error fetching events:', err)
-        setError('Connection error. Please check your internet.')
       } finally {
         setLoading(false)
       }
@@ -38,181 +40,228 @@ export default function EventListPage() {
     fetchEvents()
   }, [])
 
+  const genres = useMemo(() => {
+    const uniqueGenres = Array.from(new Set(events.map(e => e.genre).filter(Boolean)))
+    return ['All', ...uniqueGenres]
+  }, [events])
+
+  const filteredEvents = useMemo(() => {
+    return events.filter(event => {
+      const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           (event.description?.toLowerCase().includes(searchQuery.toLowerCase()))
+      const matchesGenre = selectedGenre === 'All' || event.genre === selectedGenre
+      return matchesSearch && matchesGenre
+    })
+  }, [events, searchQuery, selectedGenre])
+
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-500/20 border-t-teal-600"></div>
-        <p className="text-slate-500 font-medium animate-pulse">Loading amazing experiences...</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-6 text-center px-6">
-        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center">
-          <span className="material-symbols-outlined text-3xl">error</span>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-6 bg-[#0F172A]">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-teal-500/20 border-t-teal-500 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Star className="w-6 h-6 text-teal-500 animate-pulse" />
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Oops! Something went wrong</h2>
-          <p className="text-slate-500">{error}</p>
-        </div>
-        <button 
-          onClick={() => window.location.reload()}
-          className="px-6 py-2 bg-slate-900 text-white rounded-full font-bold text-sm hover:bg-slate-800 transition-all"
-        >
-          Try Again
-        </button>
+        <p className="text-teal-500/50 font-black tracking-[0.3em] uppercase text-[10px]">Initializing Experience...</p>
       </div>
     )
   }
 
   return (
-    <main className="max-w-[1200px] mx-auto px-8 py-10">
-      <div className="flex flex-col md:flex-row gap-10">
-        {/* Left Sidebar Filters */}
-        <aside className="w-full md:w-64 flex-shrink-0">
-          <div className="sticky top-28 space-y-8">
-            <div>
-              <h3 className="text-xl font-bold text-slate-900 mb-6">Categories</h3>
-              <nav className="flex flex-col gap-2">
-                {categories.map((cat) => (
-                  <button 
-                    key={cat.name}
-                    className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                      cat.active 
-                      ? 'bg-teal-100 text-teal-800 shadow-sm' 
-                      : 'text-slate-600 hover:bg-slate-100'
-                    }`}
+    <main className="min-h-screen bg-[#0F172A] pb-32 overflow-hidden">
+      {/* Premium Hero Section */}
+      <div className="relative pt-32 pb-24 overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-teal-500/10 blur-[120px] rounded-full -z-10"></div>
+        <div className="max-w-[1200px] mx-auto px-8 text-center relative z-10">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8"
+          >
+            <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-400">Live Experiences Now Available</span>
+          </motion.div>
+          
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-6xl md:text-8xl font-black text-white mb-8 tracking-tighter leading-none"
+          >
+            DISCOVER THE <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500">SPECTACLE.</span>
+          </motion.h1>
+          
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="max-w-2xl mx-auto text-slate-400 text-lg md:text-xl font-medium leading-relaxed mb-12"
+          >
+            Access exclusive performances, theater, and live music across the country. 
+            Secure your front-row seat to the extraordinary.
+          </motion.p>
+        </div>
+      </div>
+
+      <div className="max-w-[1200px] mx-auto px-8">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-16">
+          
+          {/* Sidebar Navigation & Filters */}
+          <aside className="lg:col-span-3 space-y-12">
+            <div className="sticky top-32 space-y-10">
+              
+              {/* Search */}
+              <div className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Search Events</h3>
+                <div className="relative group">
+                  <input 
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="E.g. Hamlet, Jazz Festival..."
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold text-white focus:bg-white/10 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all placeholder:text-slate-600"
+                  />
+                  <Search className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 group-focus-within:text-teal-400 transition-colors" />
+                </div>
+              </div>
+
+              {/* Categories */}
+              <div className="space-y-6">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Categories</h3>
+                <div className="flex flex-col gap-2">
+                  {genres.map((genre) => (
+                    <button 
+                      key={genre}
+                      onClick={() => setSelectedGenre(genre)}
+                      className={cn(
+                        "flex items-center justify-between px-6 py-3 rounded-xl text-sm font-bold transition-all group",
+                        selectedGenre === genre 
+                        ? "bg-teal-500 text-slate-900 shadow-lg shadow-teal-500/20" 
+                        : "text-slate-400 hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      {genre}
+                      {selectedGenre === genre && <ChevronRight className="w-4 h-4" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* VIP Promotion */}
+              <div className="p-8 rounded-[32px] bg-gradient-to-br from-teal-500 to-blue-600 relative overflow-hidden group shadow-2xl shadow-teal-500/10">
+                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/20 blur-2xl rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <h4 className="text-xl font-black text-slate-900 mb-2 relative z-10">VIP ACCESS</h4>
+                <p className="text-slate-900/70 text-xs font-bold leading-relaxed mb-6 relative z-10">
+                  Join our member list for priority booking and early bird discounts.
+                </p>
+                <button className="w-full py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all">
+                  Join The Club
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          {/* Event Grid */}
+          <div className="lg:col-span-9">
+            <AnimatePresence mode='popLayout'>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                {filteredEvents.length === 0 ? (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="col-span-full py-40 text-center space-y-6"
                   >
-                    <span className="flex items-center gap-3">
-                      <span className="material-symbols-outlined">{cat.icon}</span> 
-                      {cat.name}
-                    </span>
-                    <span className={`${cat.active ? 'bg-white/40' : 'bg-slate-200'} px-2 py-0.5 rounded text-[10px] font-bold`}>
-                      {cat.count}
-                    </span>
-                  </button>
-                ))}
-              </nav>
-            </div>
-            
-            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-              <h4 className="text-sm font-bold text-teal-600 mb-4">Newsletter</h4>
-              <p className="text-[13px] text-slate-500 leading-relaxed mb-4">Get the freshest drops and event invites delivered to your inbox.</p>
-              <input 
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:ring-0 outline-none transition-all mb-3" 
-                placeholder="Your email" 
-                type="email"
-              />
-              <button className="w-full py-3 bg-teal-600 text-white rounded-xl text-sm font-bold breezy-glow transition-all">
-                Join Aura
-              </button>
-            </div>
-          </div>
-        </aside>
+                    <div className="w-24 h-24 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto">
+                      <Filter className="w-10 h-10 text-slate-700" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-black text-white">No matches found</h3>
+                      <p className="text-slate-500 font-medium">Try broadening your search or choosing a different category.</p>
+                    </div>
+                  </motion.div>
+                ) : (
+                  filteredEvents.map((event, index) => {
+                    const perfDate = event.performances?.[0]?.dateTime 
+                      ? new Date(event.performances[0].dateTime).toLocaleDateString('en-US', {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })
+                      : 'To Be Announced'
 
-        {/* Main Content Grid */}
-        <div className="flex-1">
-          <div className="flex items-baseline justify-between mb-8 border-b border-slate-100 pb-4">
-            <h1 className="text-2xl font-bold text-slate-900">What&apos;s On</h1>
-            <span className="text-sm text-slate-500">Showing {events.length} events</span>
-          </div>
+                    return (
+                      <motion.div 
+                        layout
+                        key={event.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="group relative"
+                      >
+                        <div className="absolute inset-0 bg-teal-500/20 blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
+                        <div className="bg-white/5 border border-white/10 rounded-[40px] overflow-hidden backdrop-blur-sm hover:border-white/20 transition-all duration-500 flex flex-col h-full">
+                          
+                          <div className="h-72 overflow-hidden relative">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img 
+                              src={event.imageUrl || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80'} 
+                              alt={event.title}
+                              className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
+                            />
+                            <div className="absolute top-6 right-6">
+                               <span className="bg-teal-500 text-slate-900 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
+                                  {event.genre || 'Live'}
+                               </span>
+                            </div>
+                            <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/40 to-transparent"></div>
+                          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {events.length === 0 && (
-              <div className="col-span-full py-20 text-center text-slate-500">
-                No events found.
+                          <div className="px-10 pb-10 flex-1 flex flex-col -mt-12 relative z-10">
+                            <div className="flex items-center gap-3 text-teal-400 font-black text-[10px] uppercase tracking-[0.2em] mb-4 bg-teal-400/10 w-fit px-4 py-1 rounded-full border border-teal-400/20">
+                              <Clock className="w-3.5 h-3.5" />
+                              {perfDate}
+                            </div>
+                            
+                            <h3 className="text-3xl font-black text-white mb-6 leading-tight group-hover:text-teal-400 transition-colors">
+                              {event.title}
+                            </h3>
+                            
+                            <div className="flex items-center gap-4 text-slate-400 text-xs font-bold mb-10">
+                              <span className="flex items-center gap-2">
+                                <MapPin className="w-4 h-4 text-teal-500" /> 
+                                {event.venue?.name || 'Grand Arena'}
+                              </span>
+                            </div>
+
+                            <div className="mt-auto flex items-center justify-between pt-8 border-t border-white/5">
+                              <div>
+                                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 mb-1">From</p>
+                                 <p className="text-3xl font-black text-white">£{event.adultPrice}</p>
+                              </div>
+                              <Link 
+                                href={`/events/${event.id}`}
+                                className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-teal-500 hover:text-slate-900 transition-all shadow-xl active:scale-95"
+                              >
+                                View Details
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  })
+                )}
+              </div>
+            </AnimatePresence>
+
+            {filteredEvents.length > 0 && (
+              <div className="mt-24 text-center">
+                <div className="h-px w-32 bg-white/5 mx-auto mb-8"></div>
+                <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.4em]">Curated by EventSeats Team</p>
               </div>
             )}
-
-            {events.map((event, index) => {
-              const isFeatured = index === 0 && events.length > 0
-              const performanceDate = event.performances?.[0]?.dateTime 
-                ? new Date(event.performances[0].dateTime).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  })
-                : 'Date TBA'
-
-              if (isFeatured) {
-                return (
-                  <div key={event.id} className="md:col-span-2 group relative bg-white border border-slate-100 rounded-2xl overflow-hidden hover:shadow-xl transition-all flex flex-col lg:flex-row">
-                    <div className="lg:w-3/5 h-[300px] lg:h-auto overflow-hidden relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img 
-                        src={event.imageUrl || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80'} 
-                        alt={event.title}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      />
-                      <div className="absolute top-4 left-4 bg-teal-600 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">Featured</div>
-                    </div>
-                    <div className="p-8 lg:w-2/5 flex flex-col justify-center">
-                      <div className="flex items-center gap-2 text-teal-600 font-medium text-sm mb-3">
-                        <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-                        {performanceDate}
-                      </div>
-                      <h2 className="text-2xl font-bold text-slate-900 mb-4 group-hover:text-teal-600 transition-colors">{event.title}</h2>
-                      <p className="text-slate-500 text-sm mb-6 line-clamp-2">{event.description}</p>
-                      <div className="flex items-center justify-between mt-auto">
-                        <span className="text-2xl font-bold text-slate-800">${event.adultPrice}</span>
-                        <Link 
-                          href={`/events/${event.id}`}
-                          className="px-6 py-3 bg-teal-600 text-white rounded-xl text-sm font-bold breezy-glow transition-all active:scale-[0.98]"
-                        >
-                          Book Tickets
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                )
-              }
-
-              return (
-                <div key={event.id} className="group bg-white border border-slate-100 rounded-2xl overflow-hidden hover:shadow-lg transition-all flex flex-col">
-                  <div className="h-56 overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={event.imageUrl || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80'} 
-                      alt={event.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                    <div className="absolute top-4 right-4">
-                      <span className="bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-bold text-slate-800 uppercase tracking-wider">{event.genre}</span>
-                    </div>
-                  </div>
-                  <div className="p-6 flex flex-col flex-1">
-                    <div className="text-teal-600 font-medium text-xs mb-2">{performanceDate}</div>
-                    <h3 className="text-lg font-bold text-slate-900 mb-3 group-hover:text-teal-600 transition-colors">{event.title}</h3>
-                    <div className="flex items-center gap-4 text-slate-500 text-sm mb-6">
-                      <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">location_on</span> {event.venue?.name || 'Main Hall'}</span>
-                    </div>
-                    <div className="mt-auto">
-                      <Link 
-                        href={`/events/${event.id}`}
-                        className="w-full py-3 bg-teal-600 text-white rounded-xl text-sm font-bold breezy-glow transition-all block text-center"
-                      >
-                        Book from ${event.adultPrice}
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Pagination */}
-          <div className="mt-16 flex items-center justify-center gap-2">
-            <button className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:bg-white transition-all">
-              <span className="material-symbols-outlined">chevron_left</span>
-            </button>
-            <button className="w-10 h-10 bg-teal-600 text-white rounded-xl text-sm font-bold">1</button>
-            <button className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:bg-white transition-all">
-              <span className="material-symbols-outlined">chevron_right</span>
-            </button>
           </div>
         </div>
       </div>

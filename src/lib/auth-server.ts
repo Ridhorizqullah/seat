@@ -6,6 +6,7 @@ export interface UserSession {
   email: string
   role: string
   id: string
+  organizationId?: string
 }
 
 /**
@@ -23,7 +24,7 @@ export async function getServerSession(): Promise<UserSession | null> {
     // 1. Check in users table (Admin/Staff)
     const { data: user } = await supabase
       .from('users')
-      .select('id, email, role')
+      .select('id, email, role, organizationId')
       .eq('email', email)
       .single()
 
@@ -31,7 +32,8 @@ export async function getServerSession(): Promise<UserSession | null> {
       return {
         id: user.id,
         email: user.email,
-        role: user.role
+        role: user.role,
+        organizationId: user.organizationId
       }
     }
 

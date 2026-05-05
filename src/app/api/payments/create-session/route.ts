@@ -37,12 +37,15 @@ export async function POST(request: NextRequest) {
 
     const show = (perf as any).shows
     const title = show?.title || 'Performance'
+    const serviceFeeMinor = 250 // £2.50 in pence
 
     const currency = 'GBP'
-    const totalMinor = calculateTotalMinor(
+    const subtotalMinor = calculateTotalMinor(
       { adult: Number(show?.adultPrice || 0), child: Number(show?.childPrice || 0), concession: Number(show?.concessionPrice || 0) },
       seats
     )
+    const totalMinor = subtotalMinor + serviceFeeMinor
+
     if (totalMinor <= 0) {
       return NextResponse.json({ success: false, error: 'Calculated total is zero' }, { status: 400 })
     }
@@ -55,14 +58,14 @@ export async function POST(request: NextRequest) {
     const bookingId = randomUUID()
     const bookingNumber = `BK${Date.now().toString().slice(-6)}${Math.random().toString(36).substr(2, 3).toUpperCase()}`
 
-    const { data: createdBooking, error: bookingErr } = await supabase
+    const { error: bookingErr } = await supabase
       .from('bookings')
       .insert({
         id: bookingId,
         bookingNumber,
         status: 'PENDING',
         totalAmount: totalMinor / 100,
-        bookingFee: 0,
+        bookingFee: serviceFeeMinor / 100,
         performanceId,
         showId: show.id,
         customerId,
@@ -78,14 +81,20 @@ export async function POST(request: NextRequest) {
 
     // Insert booking items for reservation
     const { error: itemsErr } = await supabase.from('booking_items').insert(
-      seats.map((s) => ({
-        id: randomUUID(),
-        seatId: s.seatId,
-        ticketType: s.ticketType,
-        price: 0, // final price not needed here, purely for reservation (actual price captured on webhook)
-        bookingId,
-        createdAt: now,
-      }))
+      seats.map((s: any) => {
+        const sid = s.seatId || s.id;
+        if (!sid) {
+          throw new Error('Salah satu kursi terpilih tidak memiliki ID yang valid.');
+        }
+        return {
+          id: randomUUID(),
+          seatId: sid,
+          ticketType: s.ticketType || 'ADULT',
+          price: 0,
+          bookingId,
+          createdAt: now,
+        };
+      })
     )
     if (itemsErr) {
       // Rollback booking if items fail
@@ -110,8 +119,8 @@ export async function POST(request: NextRequest) {
           price_data: {
             currency,
             product_data: {
-              name: `Tickets for ${title}`,
-              description: new Date(perf.dateTime).toLocaleString('en-GB')
+              name: `Tiket: ${title}`,
+              description: `${seats.length} Tiket + Biaya Layanan (£2.50)`
             },
             unit_amount: totalMinor,
           },

@@ -4,6 +4,10 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '../../../components/ui/button'
+import { supabase } from '@/lib/supabase'
+import { RealtimeSeatViewer } from '../../../components/admin/realtime-seat-viewer'
+import { AnimatePresence } from 'framer-motion'
+import { Monitor } from 'lucide-react'
 
 
 interface Show {
@@ -20,6 +24,7 @@ interface Show {
   childPrice: number
   concessionPrice: number
   performances: Performance[]
+  seats?: { count: number }[]
 }
 
 interface Performance {
@@ -65,6 +70,7 @@ export default function AdminShowsPage() {
   const [editingPerformance, setEditingPerformance] = useState<EditingPerformance | null>(null)
   const [selectedShowForPerformances, setSelectedShowForPerformances] = useState<Show | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [activeRealtimeView, setActiveRealtimeView] = useState<{show: Show, performance: Performance} | null>(null)
 
   const fetchShows = async () => {
     try {
@@ -270,6 +276,25 @@ export default function AdminShowsPage() {
     checkAuth()
   }, [router])
 
+  // --- REALTIME LISTENER (Integrasi Realtime Workflow) ---
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-seat-updates')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'seats' }, 
+        () => {
+          // Refresh shows data when seats change
+          fetchShows()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+  // --------------------------------------------------------
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -363,6 +388,9 @@ export default function AdminShowsPage() {
                     Bookings
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Seats
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Revenue
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -397,6 +425,9 @@ export default function AdminShowsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {totalBookings}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {show.seats?.[0]?.count || 0}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         £{revenue.toFixed(2)}
@@ -538,17 +569,39 @@ export default function AdminShowsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                   <div>
-                    <label className="block text-sm font-medium text-gray-800 mb-1">Adult Price (£)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editingShow.adultPrice}
-                      onChange={(e) => setEditingShow(prev => prev ? {...prev, adultPrice: parseFloat(e.target.value) || 0} : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      min="0"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-800 mb-1">Adult Price (£)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editingShow.adultPrice}
+                        onChange={(e) => setEditingShow(prev => prev ? {...prev, adultPrice: parseFloat(e.target.value) || 0} : null)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-800 mb-1">Child Price (£)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editingShow.childPrice}
+                        onChange={(e) => setEditingShow(prev => prev ? {...prev, childPrice: parseFloat(e.target.value) || 0} : null)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-800 mb-1">Concession Price (£)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editingShow.concessionPrice}
+                        onChange={(e) => setEditingShow(prev => prev ? {...prev, concessionPrice: parseFloat(e.target.value) || 0} : null)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        min="0"
+                      />
+                    </div>
                 </div>
               </div>
 
@@ -608,6 +661,14 @@ export default function AdminShowsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setActiveRealtimeView({ show: selectedShowForPerformances, performance })}
+                          className="text-blue-600 flex items-center gap-2"
+                        >
+                          <Monitor className="w-4 h-4" />
+                          Monitor Live
+                        </Button>
                         <Button
                           variant="ghost"
                           onClick={() => handleEditPerformance(performance)}
@@ -686,6 +747,17 @@ export default function AdminShowsPage() {
           </div>
         </div>
       )}
+
+      {/* Realtime Monitor View */}
+      <AnimatePresence>
+        {activeRealtimeView && (
+          <RealtimeSeatViewer 
+            show={activeRealtimeView.show}
+            performance={activeRealtimeView.performance}
+            onClose={() => setActiveRealtimeView(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

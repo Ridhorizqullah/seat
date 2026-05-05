@@ -15,7 +15,7 @@ vi.mock('@/lib/supabase', () => {
         items = items.filter((it: any) => it[field] === value)
         return query
       },
-      order(_field: string, _opts: { ascending: boolean }) {
+      order() {
         return query
       },
       then(resolve: any) {
@@ -39,7 +39,7 @@ vi.mock('@/lib/supabase', () => {
   }
 })
 
-const makeRequest = (url: string) => new Request(url)
+const makeRequest = (url: string) => new Request(url) as any
 
 describe('GET /api/bookings', () => {
   it('returns all bookings when no filters', async () => {

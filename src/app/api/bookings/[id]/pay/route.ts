@@ -40,17 +40,31 @@ export async function POST(
     await new Promise(resolve => setTimeout(resolve, 1500))
 
     // 4. Update Status: PENDING -> PAID -> CONFIRMED
+    const { data: items } = await supabase
+      .from('booking_items')
+      .select('seatId')
+      .eq('bookingId', id)
+
     const { error: updateError } = await supabase
       .from('bookings')
       .update({ 
-        status: 'CONFIRMED', // Direct to CONFIRMED for simulation simplicity, or move to PAID then CONFIRMED
+        status: 'CONFIRMED', 
         updatedAt: new Date().toISOString() 
       })
       .eq('id', id)
 
     if (updateError) throw updateError
 
-    logger.info('Booking confirmed after simulated payment', { id })
+    // 5. Update Seat Status in the seats table (New logic)
+    if (items && items.length > 0) {
+      const seatIds = items.map(i => i.seatId)
+      await supabase
+        .from('seats')
+        .update({ status: 'booked' })
+        .in('id', seatIds)
+    }
+
+    logger.info('Booking confirmed and seats marked as booked', { id, seatIds: items?.map(i => i.seatId) })
 
     return NextResponse.json({
       success: true,

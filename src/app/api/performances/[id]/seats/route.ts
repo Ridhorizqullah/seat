@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseService } from '@/lib/supabase'
 
 export async function GET(
   request: NextRequest,
@@ -9,12 +9,13 @@ export async function GET(
     const { id } = await params
 
     // 1. Get the performance to find its show and seating layout
-    const { data: performance, error: perfError } = await supabase
+    // Use service role to ensure we can see the linked show (bypassing RLS)
+    const { data: performance, error: perfError } = await supabaseService
       .from('performances')
       .select(`
         id,
         showId,
-        shows (
+        show:shows (
           id,
           seatingLayoutId
         )
@@ -31,7 +32,7 @@ export async function GET(
       }, { status: 404 })
     }
 
-    const seatingLayoutId = (performance.shows as any).seatingLayoutId
+    const seatingLayoutId = (performance.show as any)?.seatingLayoutId
 
     if (!seatingLayoutId) {
       return NextResponse.json({
@@ -42,8 +43,8 @@ export async function GET(
       }, { status: 404 })
     }
 
-    // 2. Get all seats for this layout
-    const { data: seats, error: seatsError } = await supabase
+    // 2. Get all seats for this show (New Logic)
+    const { data: seats, error: seatsError } = await supabaseService
       .from('seats')
       .select('*')
       .eq('seatingLayoutId', seatingLayoutId)
@@ -75,13 +76,8 @@ export async function GET(
 
     // 4. Map seats to include booking status
     const seatsWithStatus = seats?.map(seat => ({
-      seatId: seat.id,
-      row: seat.row,
-      number: seat.number,
-      status: bookedSeatIds.has(seat.id) ? 'booked' : 'available',
-      // keep other seat info just in case
-      section: seat.section,
-      type: seat.type
+      ...seat,
+      status: bookedSeatIds.has(seat.id) ? 'booked' : 'available'
     })) || []
 
     return NextResponse.json({

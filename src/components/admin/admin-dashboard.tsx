@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { formatPrice, formatDateTime } from '../../lib/utils'
-import { Booking, Show, Performance } from '../../types'
+import { Booking, Performance } from '../../types'
 import { Button } from '../ui/button'
 
 interface DashboardStats {

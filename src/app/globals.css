@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap");
 @import "tailwindcss";
 
 /* Base theme variables with sensible defaults.
@@ -20,9 +21,8 @@
   /* Fonts (set by next/font variables) */
   --font-body: var(--font-body, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif);
   --font-display: var(--font-display, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif);
-}
 
-@theme inline {
+  /* Tailwind v4 Theme Mappings */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
