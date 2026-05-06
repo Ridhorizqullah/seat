@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import * as bcrypt from 'bcryptjs'
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, firstName, lastName, phone, address } = body
+    const { email, firstName, lastName, phone, address, newPassword } = body
 
     if (!email) {
       return NextResponse.json({
@@ -64,7 +65,36 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Build update payload
+    // 1. Handle password update if provided
+    if (newPassword) {
+      const salt = await bcrypt.genSalt(10)
+      const hashedPassword = await bcrypt.hash(newPassword, salt)
+      
+      // Update in users table (primary nextauth account table)
+      const { error: userError } = await supabase
+        .from('users')
+        .update({ 
+          hashedPassword, 
+          updatedAt: new Date().toISOString() 
+        })
+        .eq('email', email)
+
+      if (userError) {
+        console.error('Error updating password in users table:', userError)
+        throw new Error(`Failed to update authentication credentials: ${userError.message}`)
+      }
+
+      // Sync into customers table (contains hashedPassword as well)
+      await supabase
+        .from('customers')
+        .update({ 
+          hashedPassword, 
+          updatedAt: new Date().toISOString() 
+        })
+        .eq('email', email)
+    }
+
+    // 2. Build profile update payload
     const updateData: any = { updatedAt: new Date().toISOString() }
     if (firstName !== undefined) updateData.firstName = firstName
     if (lastName !== undefined) updateData.lastName = lastName
@@ -106,3 +136,4 @@ export async function PUT(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
