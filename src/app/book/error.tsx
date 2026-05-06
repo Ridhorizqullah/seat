@@ -12,7 +12,7 @@ export default function BookingError({ error, reset }: { error: Error & { digest
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-.01-10a9 9 0 110 18 9 9 0 010-18z" />
           </svg>
         </div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">We couldn't complete your booking</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">We couldn&apos;t complete your booking</h2>
         <p className="text-gray-700 mb-4">{error?.message || 'An unexpected error occurred during the booking process.'}</p>
         {error?.digest && (
           <p className="text-xs text-gray-500 mb-4">Reference: {error.digest}</p>

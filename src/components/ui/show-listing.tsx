@@ -184,7 +184,7 @@ export const ShowListing: React.FC<ShowListingProps> = ({
   return (
     <div className={cn('space-y-8', className)}>
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">What's On</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">What&apos;s On</h1>
         <p className="text-gray-600 max-w-2xl mx-auto">
           Discover our upcoming shows and book your tickets online.
           Select your preferred performance and secure your seats today.

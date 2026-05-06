@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { BookingPage } from '../../../../components/booking/booking-page'
 import { Show, Performance, SeatingLayout, BookingFormData, SeatSelection, ShowStatus, TicketType } from '../../../../types'
@@ -245,12 +246,12 @@ export default function BookingRoute() {
             >
               Try Again
             </button>
-            <a
+            <Link
               href="/"
               className="inline-block bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
             >
               Back to Shows
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -263,12 +264,12 @@ export default function BookingRoute() {
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900">Show or performance not found</h2>
           <p className="text-gray-600 mt-2">The requested show or performance could not be found.</p>
-          <a
+          <Link
             href="/"
             className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
             Back to Shows
-          </a>
+          </Link>
         </div>
       </div>
     )
@@ -285,9 +286,9 @@ export default function BookingRoute() {
               <p className="text-gray-600">Demo Theatre</p>
             </div>
             <nav>
-              <a href="/" className="text-blue-600 hover:text-blue-500">
+              <Link href="/" className="text-blue-600 hover:text-blue-500">
                 ← Back to Shows
-              </a>
+              </Link>
             </nav>
           </div>
         </div>

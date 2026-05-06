@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import { LoginForm } from '../../../components/auth/login-form'
 
 export default function LoginPage() {
@@ -44,9 +45,9 @@ export default function LoginPage() {
             © {new Date().getFullYear()} Event Seats. Open source software for drama groups.
           </p>
           <div className="mt-2 flex justify-center space-x-4 text-sm">
-            <a href="/" className="text-highlight hover:text-lowlight">
+            <Link href="/" className="text-highlight hover:text-lowlight">
               Public Site
-            </a>
+            </Link>
             <span className="text-gray-300">•</span>
 
             <span className="text-gray-300">•</span>
