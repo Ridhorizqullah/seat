@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": "20.x"
   },
   "scripts": {
     "dev": "next dev --turbopack",
@@ -30,7 +30,6 @@
     "@reduxjs/toolkit": "^2.8.2",
     "@stripe/stripe-js": "^7.8.0",
     "@supabase/supabase-js": "^2.54.0",
-    "@types/bcryptjs": "^3.0.0",
     "@vercel/analytics": "^1.5.0",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",

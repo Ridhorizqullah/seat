@@ -1,8 +1,8 @@
-import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { BookingPage } from './booking-page'
-import type { Show, Performance, SeatingLayout, SeatSelection, BookingFormData } from '../../types'
+import type { Show, Performance, SeatingLayout } from '../../types'
 
 // Mock SeatGrid so we can drive selections deterministically
 vi.mock('../seat/seat-grid', () => ({

@@ -11,7 +11,7 @@ const makeQuery = (data: any) => ({
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: (_: string) => ({
+    from: (_table: string) => ({
       select: (_sel: string) => makeQuery([
         {
           id: 'perf-1',

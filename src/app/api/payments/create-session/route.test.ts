@@ -29,14 +29,14 @@ vi.mock('@/lib/supabase', () => {
 
   function performancesBuilder() {
     return {
-      select: () => ({ eq: (_: string, __: string) => ({ single: async () => ({
+      select: () => ({ eq: (_col: string, _val: string) => ({ single: async () => ({
         data: { ...state.performance, shows: state.show }, error: null,
       }) }) }),
     }
   }
   function bookingsBuilder() {
     return {
-      insert: (_payload: any) => ({ select: () => ({ single: async () => ({ data: { id: 'booking-1' }, error: null }) }) }),
+      insert: (_data: any) => ({ select: () => ({ single: async () => ({ data: { id: 'booking-1' }, error: null }) }) }),
       delete: () => ({ eq: async () => ({}) }),
     }
   }

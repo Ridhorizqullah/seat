@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     // Try to fetch venue settings from database first
     const { data: venueSettings, error: venueError } = await supabase
@@ -59,7 +59,7 @@ export async function GET(_request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { venue, system, external } = body
+    const { venue } = body
 
     // Update venue settings
     if (venue) {
