@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseService } from '@/lib/supabase'
 import { randomUUID } from 'crypto'
 
 interface CreatePerformanceRequest {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate that the show exists
-    const { data: show, error: showError } = await supabase
+    const { data: show, error: showError } = await supabaseService
       .from('shows')
       .select('id')
       .eq('id', body.showId)
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     const performanceId = randomUUID()
     const now = new Date().toISOString()
 
-    const { data: performance, error } = await supabase
+    const { data: performance, error } = await supabaseService
       .from('performances')
       .insert({
         id: performanceId,
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     const showId = searchParams.get('showId')
     const upcoming = searchParams.get('upcoming')
 
-    let query = supabase
+    let query = supabaseService
       .from('performances')
       .select(`
         id,

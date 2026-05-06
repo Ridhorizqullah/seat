@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabase } from '@/lib/supabase'
-import { auth } from '@/lib/auth'
+import { getServerSession } from '@/lib/auth-server'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session || !session.user || (session.user.role !== 'ADMIN' && session.user.role !== 'STAFF')) {
+    const session = await getServerSession()
+    if (!session || (session.role !== 'ADMIN' && session.role !== 'STAFF')) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         bookingId: booking.id,
         bookingNumber: booking.bookingNumber,
-        issuedByUserId: session.user.id,
+        issuedByUserId: session.id,
       }
     })
 

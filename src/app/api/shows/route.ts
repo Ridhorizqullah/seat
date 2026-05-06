@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, supabaseService } from '@/lib/supabase'
+import { supabaseService } from '@/lib/supabase'
 import { randomUUID } from 'crypto'
 import { getServerSession } from '@/lib/auth-server'
 
@@ -14,6 +14,7 @@ interface CreateShowRequest {
   childPrice: number
   concessionPrice: number
   status: string
+  capacity?: number
 }
 
 export async function POST(request: NextRequest) {
@@ -40,14 +41,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the first available venue and seating layout for this organization
-    const { data: venue } = await supabase
+    const { data: venue } = await supabaseService
       .from('venues')
       .select('id')
       .eq('organizationId', session.organizationId)
       .limit(1)
       .single()
 
-    const { data: layout } = await supabase
+    const { data: layout } = await supabaseService
       .from('seating_layouts')
       .select('id')
       .eq('venueId', venue?.id || '')
@@ -88,19 +89,28 @@ export async function POST(request: NextRequest) {
     }
 
     // --- AUTOMATIC SEAT GENERATION (Admin Shows Workflow) ---
-    // Generate 5 rows (A-E) with 10 seats each (50 seats total)
-    const rows = ['A', 'B', 'C', 'D', 'E']
+    const capacity = body.capacity || 50
     const seatsToInsert = []
+    const seatsPerRow = 10
+    const rowsCount = Math.ceil(capacity / seatsPerRow)
 
-    for (const row of rows) {
-      for (let i = 1; i <= 10; i++) {
+    for (let r = 0; r < rowsCount; r++) {
+      const rowLetter = String.fromCharCode(65 + r) // A, B, C...
+      const seatsInThisRow = Math.min(seatsPerRow, capacity - (r * seatsPerRow))
+      for (let i = 1; i <= seatsInThisRow; i++) {
         seatsToInsert.push({
+          id: randomUUID(),
           show_id: showId,
-          row: row,
+          seatingLayoutId: layout?.id || '0baaef18-b917-41a1-89c8-a925460f372e',
+          row: rowLetter,
           number: i,
-          seat_number: `${row}${i}`,
+          seat_number: `${rowLetter}${i}`,
           status: 'available',
-          category: 'Reguler'
+          category: 'Reguler',
+          isAccessible: false,
+          isWheelchairSpace: false,
+          createdAt: now,
+          updatedAt: now
         })
       }
     }
@@ -111,9 +121,7 @@ export async function POST(request: NextRequest) {
 
     if (seatError) {
       console.error("Gagal generate kursi:", seatError)
-      // We don't necessarily want to fail the whole show creation if seats fail, 
-      // but it's better to log it or handle it. 
-      // For now, let's just log it as per the workflow example.
+      throw new Error(`Failed to generate seats: ${seatError.message}`)
     }
     // ---------------------------------------------------------
 
@@ -165,7 +173,12 @@ export async function GET(request: NextRequest) {
           createdAt,
           updatedAt
         ),
-        seats:seats!show_id(count)
+        seats:seats!show_id(count),
+        bookings:bookings!showId (
+          id,
+          totalAmount,
+          status
+        )
       `)
 
     // If it's an admin/staff request, filter by their organization

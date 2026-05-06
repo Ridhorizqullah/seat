@@ -4,13 +4,13 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { logout } from '@/lib/auth-client'
+import { Search, Bell, LogOut, User, LayoutDashboard, ArrowRight } from 'lucide-react'
 
 export default function UserNavbar() {
   const pathname = usePathname()
   const [user, setUser] = useState<{ email: string; role: string } | null>(null)
 
   useEffect(() => {
-    // Check if user is logged in via API
     const checkUser = async () => {
       try {
         const res = await fetch('/api/auth/me')
@@ -34,16 +34,16 @@ export default function UserNavbar() {
   ]
 
   return (
-    <header className={`bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] sticky top-0 z-50 transition-all duration-300`}>
-      <div className="flex justify-between items-center w-full max-w-[1200px] mx-auto px-8 h-20 font-['Inter'] antialiased text-slate-600 dark:text-slate-300">
+    <header className="backdrop-blur-md bg-[#020617]/80 sticky top-0 z-50 border-b border-slate-800/80 transition-all duration-300">
+      <div className="flex justify-between items-center w-full max-w-[1200px] mx-auto px-8 h-20 font-sans antialiased text-slate-300">
         <div className="flex items-center gap-8">
-          <Link href="/" className="text-2xl font-bold tracking-tight text-teal-500 dark:text-teal-400">
+          <Link href="/" className="text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-400 to-indigo-400 hover:opacity-90 transition-opacity">
             EventEase
           </Link>
           <div className="relative hidden lg:block">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
             <input 
-              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none w-64 transition-all text-[14px]" 
+              className="pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-800 text-slate-200 placeholder-slate-500 rounded-xl focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none w-64 transition-all text-[14px]" 
               placeholder="Search events..." 
               type="text"
             />
@@ -55,10 +55,10 @@ export default function UserNavbar() {
             <Link 
               key={link.name} 
               href={link.href}
-              className={`${
+              className={`transition-colors text-[15px] ${
                 pathname === link.href 
-                ? 'text-teal-500 dark:text-teal-400 font-semibold border-b-2 border-teal-500 pb-1' 
-                : 'text-slate-500 dark:text-slate-400 hover:text-teal-500 dark:hover:text-teal-300 transition-colors'
+                ? 'text-teal-400 font-semibold border-b-2 border-teal-400 pb-1' 
+                : 'text-slate-400 hover:text-teal-300'
               }`}
             >
               {link.name}
@@ -67,26 +67,30 @@ export default function UserNavbar() {
         </nav>
 
         <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-all active:opacity-80 active:scale-[0.98]">
-            <span className="material-symbols-outlined">notifications</span>
+          <button className="p-2.5 text-slate-400 hover:text-teal-400 hover:bg-slate-900/50 rounded-lg transition-all active:opacity-80 active:scale-[0.98]">
+            <Bell className="w-5 h-5" />
           </button>
           {user ? (
             <>
               {user.role !== 'CUSTOMER' && (
-                <Link href="/admin/dashboard" className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-[14px] hover:bg-indigo-100 transition-all">
-                  <span>Admin</span>
+                <Link href="/admin/shows" className="flex items-center gap-2 px-4 py-2 bg-indigo-950/40 text-indigo-400 border border-indigo-900/50 rounded-xl text-[14px] hover:bg-indigo-900/40 transition-all">
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span className="font-semibold">Admin</span>
                 </Link>
               )}
-              <Link href="/profile" className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[14px] text-on-surface-variant hover:bg-slate-50 transition-all">
+              <Link href="/profile" className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border border-slate-800 rounded-xl text-[14px] text-slate-300 hover:bg-slate-800/80 transition-all">
+                <User className="w-4 h-4 text-slate-400" />
                 <span>Profile</span>
               </Link>
-              <button onClick={() => logout()} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl text-[14px] hover:bg-red-100 transition-all cursor-pointer">
+              <button onClick={() => logout()} className="flex items-center gap-2 px-4 py-2 bg-red-950/40 text-red-400 border border-red-900/50 rounded-xl text-[14px] hover:bg-red-900/40 transition-all cursor-pointer">
+                <LogOut className="w-4 h-4" />
                 <span>Logout</span>
               </button>
             </>
           ) : (
-            <Link href="/login" className="flex items-center gap-2 px-6 py-2 bg-teal-600 text-white rounded-xl text-[14px] font-bold hover:bg-teal-700 transition-all">
+            <Link href="/login" className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-500 text-slate-950 rounded-xl text-[14px] font-bold hover:shadow-[0_0_20px_rgba(45,212,191,0.4)] hover:-translate-y-0.5 transition-all">
               <span>Sign In</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
           )}
         </div>

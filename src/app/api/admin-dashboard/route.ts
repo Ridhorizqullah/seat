@@ -1,38 +1,40 @@
 import { NextResponse } from 'next/server'
 import { supabaseService } from '@/lib/supabase'
-import { auth } from '@/lib/auth' 
+import { getServerSession } from '@/lib/auth-server'
 
 export async function GET() {
   try {
     // Check authentication
-    const session = await auth()
+    const session = await getServerSession()
 
-    if (!session?.user?.email) {
+    if (!session?.email) {
       return NextResponse.json({
         success: false,
         error: 'Unauthorized'
       }, { status: 401 })
     }
 
-    // Verify user is admin
-    const { data: user, error: userError } = await supabaseService
-      .from('users')
-      .select('role, organizationId')
-      .eq('email', session.user.email)
-      .single()
-
-    console.log('Admin Dashboard Request:', { 
-      email: session.user.email, 
-      organizationId: user?.organizationId,
-      role: user?.role 
-    })
-
-    if (userError || !user || user.role !== 'ADMIN') {
+    // Verify user is admin or staff
+    if (session.role !== 'ADMIN' && session.role !== 'STAFF') {
       return NextResponse.json({
         success: false,
         error: 'Insufficient permissions'
       }, { status: 403 })
     }
+
+    const organizationId = session.organizationId
+    if (!organizationId) {
+      return NextResponse.json({
+        success: false,
+        error: 'No organization linked to this account'
+      }, { status: 400 })
+    }
+
+    console.log('Admin Dashboard Request:', { 
+      email: session.email, 
+      organizationId,
+      role: session.role 
+    })
     // Fetch all bookings with customer and performance details
     const { data: bookings, error: bookingsError } = await supabaseService
       .from('bookings')
@@ -61,7 +63,7 @@ export async function GET() {
           organizationId
         )
       `)
-      .eq('shows.organizationId', user.organizationId)
+      .eq('shows.organizationId', organizationId)
       .order('createdAt', { ascending: false })
 
     if (bookingsError) {
@@ -84,7 +86,7 @@ export async function GET() {
           notes
         )
       `)
-      .eq('organizationId', user.organizationId)
+      .eq('organizationId', organizationId)
       .order('createdAt', { ascending: false })
 
     if (showsError) {

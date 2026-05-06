@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseService } from '@/lib/supabase'
+import { getServerSession } from '@/lib/auth-server'
 
 export async function GET(request: NextRequest) {
   try {
+    // 1. Validate Authentication (Server-side check)
+    const session = await getServerSession()
+    if (!session || (session.role !== 'ADMIN' && session.role !== 'STAFF')) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1)
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10), 1), 100)
@@ -14,7 +21,7 @@ export async function GET(request: NextRequest) {
     const to = from + limit - 1
 
     // Base customer query with count for pagination
-    let customerQuery = supabase
+    let customerQuery = supabaseService
       .from('customers')
       .select('id, firstName, lastName, email, phone, emailOptIn, smsOptIn, createdAt', { count: 'exact' })
 
@@ -47,11 +54,11 @@ export async function GET(request: NextRequest) {
 
     const customerIds = (customers || []).map((c: any) => c.id)
 
-    // If there are customers, compute booking stats for them
+    // If there are customers, compute booking stats for them using service client to bypass RLS
     let statsByCustomerId: Record<string, { bookingCount: number; totalSpent: number; lastBooking: number | null }> = {}
 
     if (customerIds.length > 0) {
-      const { data: bookings, error: bookingsError } = await supabase
+      const { data: bookings, error: bookingsError } = await supabaseService
         .from('bookings')
         .select('customerId, totalAmount, createdAt')
         .in('customerId', customerIds)

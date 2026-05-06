@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, supabaseService } from '@/lib/supabase'
+import { supabaseService } from '@/lib/supabase'
+import { randomUUID } from 'crypto'
 
 interface UpdateShowRequest {
   title?: string
@@ -12,6 +13,7 @@ interface UpdateShowRequest {
   childPrice?: number
   concessionPrice?: number
   status?: string
+  capacity?: number
 }
 
 export async function GET(
@@ -121,10 +123,92 @@ export async function PUT(
     if (body.status !== undefined) updateData.status = body.status
 
     // Add updated timestamp
-    updateData.updatedAt = new Date().toISOString()
+    const now = new Date().toISOString()
+    updateData.updatedAt = now
+
+    // If capacity is modified, handle seat regeneration
+    if (body.capacity !== undefined) {
+      // 1. Check if there are active bookings for this show
+      const { data: bookings, error: bookingsError } = await supabaseService
+        .from('bookings')
+        .select('id')
+        .eq('showId', id)
+        .limit(1)
+
+      if (bookingsError) {
+        console.error('Error checking bookings for seat resizing:', bookingsError)
+        throw new Error(`Database error: ${bookingsError.message}`)
+      }
+
+      if (bookings && bookings.length > 0) {
+        return NextResponse.json({
+          success: false,
+          error: 'Cannot change seat capacity because this show already has active bookings'
+        }, { status: 400 })
+      }
+
+      // 2. Fetch the current show to find its seatingLayoutId
+      const { data: currentShow, error: showFetchError } = await supabaseService
+        .from('shows')
+        .select('seatingLayoutId')
+        .eq('id', id)
+        .single()
+
+      if (showFetchError) {
+        console.error('Error fetching show for seat resizing:', showFetchError)
+        throw new Error(`Database error: ${showFetchError.message}`)
+      }
+
+      // 3. Delete existing seats
+      const { error: deleteSeatsError } = await supabaseService
+        .from('seats')
+        .delete()
+        .eq('show_id', id)
+
+      if (deleteSeatsError) {
+        console.error('Error deleting old seats for resizing:', deleteSeatsError)
+        throw new Error(`Database error: ${deleteSeatsError.message}`)
+      }
+
+      // 4. Generate and insert new seats
+      const capacity = body.capacity
+      const seatsToInsert = []
+      const seatsPerRow = 10
+      const rowsCount = Math.ceil(capacity / seatsPerRow)
+
+      for (let r = 0; r < rowsCount; r++) {
+        const rowLetter = String.fromCharCode(65 + r) // A, B, C...
+        const seatsInThisRow = Math.min(seatsPerRow, capacity - (r * seatsPerRow))
+        for (let i = 1; i <= seatsInThisRow; i++) {
+          seatsToInsert.push({
+            id: randomUUID(),
+            show_id: id,
+            seatingLayoutId: currentShow?.seatingLayoutId || '0baaef18-b917-41a1-89c8-a925460f372e',
+            row: rowLetter,
+            number: i,
+            seat_number: `${rowLetter}${i}`,
+            status: 'available',
+            category: 'Reguler',
+            isAccessible: false,
+            isWheelchairSpace: false,
+            createdAt: now,
+            updatedAt: now
+          })
+        }
+      }
+
+      const { error: seatError } = await supabaseService
+        .from('seats')
+        .insert(seatsToInsert)
+
+      if (seatError) {
+        console.error("Gagal regenerate kursi:", seatError)
+        throw new Error(`Failed to generate seats: ${seatError.message}`)
+      }
+    }
 
     // Update the show
-    const { data: show, error } = await supabase
+    const { data: show, error } = await supabaseService
       .from('shows')
       .update(updateData)
       .eq('id', id)
@@ -166,7 +250,7 @@ export async function DELETE(
     const { id } = await params
 
     // Check if show has any bookings
-    const { data: bookings, error: bookingsError } = await supabase
+    const { data: bookings, error: bookingsError } = await supabaseService
       .from('bookings')
       .select('id')
       .eq('showId', id)
@@ -185,7 +269,7 @@ export async function DELETE(
     }
 
     // Delete the show (performances will be cascade deleted)
-    const { error } = await supabase
+    const { error } = await supabaseService
       .from('shows')
       .delete()
       .eq('id', id)

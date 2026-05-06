@@ -24,7 +24,7 @@ export default function EmbedLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className="h-full" suppressHydrationWarning>
       <head>
         {/* Optimize for iframe embedding */}
         <meta name="viewport" content="width=device-width, initial-scale=1" />

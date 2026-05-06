@@ -25,6 +25,7 @@ interface Show {
   concessionPrice: number
   performances: Performance[]
   seats?: { count: number }[]
+  bookings?: { id: string, totalAmount: number, status: string }[]
 }
 
 interface Performance {
@@ -46,6 +47,7 @@ interface EditingShow {
   childPrice: number
   concessionPrice: number
   status: string
+  capacity: number
 }
 
 interface EditingPerformance {
@@ -103,7 +105,8 @@ export default function AdminShowsPage() {
       adultPrice: show.adultPrice,
       childPrice: show.childPrice,
       concessionPrice: show.concessionPrice,
-      status: show.status
+      status: show.status,
+      capacity: show.seats?.[0]?.count || 50
     })
     setShowEditModal(true)
   }
@@ -119,7 +122,8 @@ export default function AdminShowsPage() {
       adultPrice: 25.00,
       childPrice: 15.00,
       concessionPrice: 20.00,
-      status: 'DRAFT'
+      status: 'DRAFT',
+      capacity: 50
     })
     setShowEditModal(true)
   }
@@ -400,8 +404,8 @@ export default function AdminShowsPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {shows.map((show) => {
-                  const totalBookings = 0 // TODO: Calculate from bookings
-                  const revenue = 0 // TODO: Calculate from bookings
+                  const totalBookings = show.bookings?.length || 0
+                  const revenue = show.bookings?.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0) || 0
 
                   return (
                     <tr key={show.id} className="hover:bg-gray-50">
@@ -538,7 +542,7 @@ export default function AdminShowsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-800 mb-1">Age Rating</label>
                     <select
@@ -565,6 +569,18 @@ export default function AdminShowsPage() {
                       <option value="PUBLISHED">Published</option>
                       <option value="ARCHIVED">Archived</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-800 mb-1">Capacity (Seats)</label>
+                    <input
+                      type="number"
+                      value={editingShow.capacity}
+                      onChange={(e) => setEditingShow(prev => prev ? {...prev, capacity: parseInt(e.target.value) || 0} : null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      min="1"
+                      placeholder="e.g., 50"
+                    />
                   </div>
                 </div>
 

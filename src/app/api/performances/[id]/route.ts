@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseService } from '@/lib/supabase'
 
 interface UpdatePerformanceRequest {
   showId?: string
@@ -15,7 +15,7 @@ export async function GET(
   try {
     const { id } = await params
 
-    const { data: performance, error } = await supabase
+    const { data: performance, error } = await supabaseService
       .from('performances')
       .select(`
         id,
@@ -81,7 +81,7 @@ export async function PUT(
     updateData.updatedAt = new Date().toISOString()
 
     // Update the performance
-    const { data: performance, error } = await supabase
+    const { data: performance, error } = await supabaseService
       .from('performances')
       .update(updateData)
       .eq('id', id)
@@ -123,7 +123,7 @@ export async function DELETE(
     const { id } = await params
 
     // Check if performance has any bookings
-    const { data: bookings, error: bookingsError } = await supabase
+    const { data: bookings, error: bookingsError } = await supabaseService
       .from('bookings')
       .select('id')
       .eq('performanceId', id)
@@ -142,7 +142,7 @@ export async function DELETE(
     }
 
     // Delete the performance
-    const { error } = await supabase
+    const { error } = await supabaseService
       .from('performances')
       .delete()
       .eq('id', id)
