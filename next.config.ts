@@ -21,6 +21,10 @@ const nextConfig: NextConfig = {
       ...config.module,
       exprContextCritical: false, // Suppresses critical dependency warnings (e.g. from @supabase/realtime-js)
     };
+    config.ignoreWarnings = [
+      { module: /node_modules/ },
+      { message: /Conflicting order/ },
+    ];
     return config;
   },
   async headers() {
