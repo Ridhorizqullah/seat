@@ -3,7 +3,7 @@
 import React from 'react'
 import Image from 'next/image'
 import { formatDate, formatTime, formatPrice } from '../../lib/utils'
-import { Show, Performance } from '../../types'
+import { Show } from '../../types'
 import { Button } from './button'
 import { cn } from '../../lib/utils'
 
