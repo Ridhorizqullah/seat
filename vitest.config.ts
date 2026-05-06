@@ -15,6 +15,9 @@ export default defineConfig({
     globals: true,
     css: false,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    typecheck: {
+      tsconfig: './tsconfig.test.json',
+    },
   },
 })
 

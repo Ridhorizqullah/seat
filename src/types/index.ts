@@ -63,6 +63,8 @@ export interface Performance {
   showId: string;
   show?: Show;
   bookings: Booking[];
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Customer {

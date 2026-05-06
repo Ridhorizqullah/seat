@@ -14,7 +14,12 @@ const eslintConfig = [
   {
     rules: {
       // Relax some rules for faster development; tighten in CI if needed
-      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "destructuredArrayIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }],
       "react/no-unescaped-entities": "warn",
       "@next/next/no-html-link-for-pages": "warn",
       "react-hooks/exhaustive-deps": "warn",

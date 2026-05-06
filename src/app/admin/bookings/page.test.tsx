@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import React from 'react'
 import AdminBookingsPage from './page'
-import { describe, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 // Mock next-auth session as authenticated
 vi.mock('next-auth/react', () => ({

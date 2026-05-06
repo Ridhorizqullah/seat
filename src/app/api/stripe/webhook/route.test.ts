@@ -46,12 +46,12 @@ vi.mock('@/lib/supabase', () => {
 vi.mock('stripe', () => {
   class StripeMock {
     webhooks = {
-      constructEvent: vi.fn((payload: string, _sig: string, _sec: string) => {
+      constructEvent: vi.fn(() => {
         const session = { payment_intent: 'pi_123', metadata: { bookingId: 'booking-1', performanceId: 'perf-1', showId: 'show-1', seatsJson: JSON.stringify([{ seatId: 's1', ticketType: 'ADULT' }]), customerEmail: 'a@b.com', customerFirstName: 'A', customerLastName: 'B' } }
         return { type: 'checkout.session.completed', data: { object: session } }
       }),
     }
-    constructor(_key: string) {}
+    constructor(..._args: unknown[]) {}
   }
   return { default: StripeMock }
 })
