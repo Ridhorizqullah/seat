@@ -19,6 +19,7 @@ export const QRCode: React.FC<QRCodeProps> = ({
 
   return (
     <div className={`inline-block ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={qrCodeUrl}
         alt="QR Code"

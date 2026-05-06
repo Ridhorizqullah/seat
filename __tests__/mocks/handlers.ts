@@ -119,7 +119,7 @@ export const handlers = [
 
   // Create booking
   http.post('/api/bookings', async ({ request }) => {
-    const body = await request.json()
+    const _body = await request.json()
     return HttpResponse.json({
       success: true,
       data: {

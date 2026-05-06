@@ -8,6 +8,25 @@ vi.mock('next-auth/react', () => ({
   useSession: () => ({ data: { user: { id: 'u1', email: 'admin@example.com' } }, status: 'authenticated' }),
 }))
 
+// Mock supabase client to prevent initialization errors and mock channel/subscription APIs
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          order: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }),
+    }),
+    channel: () => ({
+      on: () => ({
+        subscribe: () => ({}),
+      }),
+    }),
+    removeChannel: () => {},
+  },
+}))
+
 // Mock router
 vi.mock('next/navigation', async () => {
   const actual: any = await vi.importActual('next/navigation')

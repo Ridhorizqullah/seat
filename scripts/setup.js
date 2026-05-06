@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 /**
  * EventSeats Setup Script
  * Helps new users get started quickly
@@ -42,7 +44,6 @@ if (majorVersion < 18) {
 
 // Check if dependencies are installed
 console.log('📦 Checking dependencies...')
-const packageLockPath = path.join(process.cwd(), 'package-lock.json')
 const nodeModulesPath = path.join(process.cwd(), 'node_modules')
 
 if (!fs.existsSync(nodeModulesPath)) {
@@ -50,7 +51,7 @@ if (!fs.existsSync(nodeModulesPath)) {
   try {
     execSync('npm install', { stdio: 'inherit' })
     console.log('✅ Dependencies installed\n')
-  } catch (error) {
+  } catch (_error) {
     console.log('❌ Failed to install dependencies')
     console.log('Please run: npm install\n')
     process.exit(1)

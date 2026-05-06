@@ -24,6 +24,7 @@ interface SeatGridProps {
   bookedSeats: string[]
   className?: string
   readOnly?: boolean
+  prices?: Record<string, number>
 }
 
 interface SeatComponentProps {

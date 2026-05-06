@@ -1,17 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { NextRequest } from 'next/server'
+
+const PERF_ID = 'e34b9d88-b221-4d37-97d5-d01d1981e4a1'
+const SEAT_1_ID = 'a1111111-1111-1111-1111-111111111111'
+const SEAT_2_ID = 'b2222222-2222-2222-2222-222222222222'
 
 // Minimal in-memory fixtures
 const perf = {
-  id: 'perf-1',
+  id: PERF_ID,
   dateTime: new Date().toISOString(),
-  showId: 'show-1',
-  shows: { id: 'show-1', title: 'Hamlet', organizationId: 'org-1' },
+  showId: 'b75f78ee-cd4a-4b68-98e5-334360ebc222',
+  shows: { id: 'b75f78ee-cd4a-4b68-98e5-334360ebc222', title: 'Hamlet', organizationId: 'org-1' },
 }
 
 // Build a small supabase mock that satisfies the chains used by this route
 const buildSupabaseMock = () => {
   const state: any = {
-    performances: { 'perf-1': perf },
+    performances: { [PERF_ID]: perf },
     customersByEmail: {},
     bookingItems: [],
   }
@@ -118,17 +123,17 @@ describe('POST /api/bookings', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        performanceId: 'perf-1',
+        performanceId: PERF_ID,
         customer: { firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com' },
         seats: [
-          { seatId: 'seat-1', ticketType: 'ADULT', price: 20 },
-          { seatId: 'seat-2', ticketType: 'ADULT', price: 20 },
+          { seatId: SEAT_1_ID, ticketType: 'ADULT', price: 20 },
+          { seatId: SEAT_2_ID, ticketType: 'ADULT', price: 20 },
         ],
         totalAmount: 40,
       }),
     })
 
-    const res = await PostFn(req)
+    const res = await PostFn(req as unknown as NextRequest)
     const json = await res.json()
     expect(json.success).toBe(true)
     expect(json.data.booking.bookingNumber).toBeTruthy()
@@ -146,7 +151,7 @@ describe('POST /api/bookings', () => {
       body: JSON.stringify({ performanceId: '', customer: { firstName: '', lastName: '', email: '' }, seats: [], totalAmount: 0 }),
     })
 
-    const res = await POST(req)
+    const res = await POST(req as unknown as NextRequest)
     expect(res.status).toBe(400)
     const json = await res.json()
     expect(json.success).toBe(false)
@@ -163,7 +168,7 @@ describe('POST /api/bookings', () => {
             select: () => ({
               eq: () => ({
                 in: () => ({
-                  in: () => Promise.resolve({ data: [ { seatId: 'seat-1' } ], error: null }),
+                  in: () => Promise.resolve({ data: [ { seatId: SEAT_1_ID } ], error: null }),
                 }),
               }),
             }),
@@ -182,18 +187,18 @@ describe('POST /api/bookings', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        performanceId: 'perf-1',
+        performanceId: PERF_ID,
         customer: { firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com' },
-        seats: [ { seatId: 'seat-1', ticketType: 'ADULT', price: 20 } ],
+        seats: [ { seatId: SEAT_1_ID, ticketType: 'ADULT', price: 20 } ],
         totalAmount: 20,
       }),
     })
 
-    const res = await PostFn(req)
+    const res = await PostFn(req as unknown as NextRequest)
     expect(res.status).toBe(409)
     const json = await res.json()
     expect(json.success).toBe(false)
-    expect(json.alreadyBookedSeats).toEqual(['seat-1'])
+    expect(json.alreadyBookedSeats).toEqual([SEAT_1_ID])
   })
 })
 

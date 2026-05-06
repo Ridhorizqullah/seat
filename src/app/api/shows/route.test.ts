@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { GET } from './route'
+import type { NextRequest } from 'next/server'
 
 // Mock supabase client with a fluent builder
 const makeQuery = (data: any) => ({
@@ -42,7 +43,7 @@ const makeRequest = (url: string) => new Request(url)
 
 describe('GET /api/shows', () => {
   it('returns shows with performances and meta', async () => {
-    const res = await GET(makeRequest('http://localhost/api/shows'))
+    const res = await GET(makeRequest('http://localhost/api/shows') as unknown as NextRequest)
     const json = await res.json()
     expect(json.success).toBe(true)
     expect(Array.isArray(json.data)).toBe(true)

@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import { GET } from './route'
 
+vi.mock('@/lib/auth-server', () => ({
+  getServerSession: () => Promise.resolve({ id: 'u1', email: 'admin@example.com', role: 'ADMIN' }),
+}))
+
 // Build a light supabase mock that can apply simple filters and order
 vi.mock('@/lib/supabase', () => {
   const dataset = [
