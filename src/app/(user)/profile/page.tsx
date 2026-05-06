@@ -15,6 +15,7 @@ export default function ProfilePage() {
   // UI States
   const [activeTab, setActiveTab] = useState<'bookings' | 'profile' | 'security' | 'payments'>('bookings')
   const [bookingFilter, setBookingFilter] = useState<'all' | 'upcoming'>('all')
+  const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -567,6 +568,17 @@ Thank you for booking with EventSeats!
     ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
     : session?.email?.split('@')[0] || 'User'
 
+  if (loading) {
+    return (
+      <main className="max-w-[1200px] mx-auto px-8 py-20 w-full min-h-[500px] flex items-center justify-center animate-fade-in">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-14 h-14 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-bold text-xs tracking-wider uppercase animate-pulse">Loading EventSeats Profile...</p>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-10 w-full min-h-[80px]">
       <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
@@ -973,7 +985,7 @@ Thank you for booking with EventSeats!
                 <span className="material-symbols-outlined text-teal-600 p-2 bg-teal-50 rounded-lg">verified_user</span>
                 <div>
                   <h4 className="font-bold text-slate-900 mb-1">Authenticated Encryption Secure</h4>
-                  <p className="text-sm text-slate-500 font-medium font-semibold">Your password parameters are securely salted and hashed using standard bcrypt rounds before writing to database clusters.</p>
+                  <p className="text-sm text-slate-500 font-medium">Your password parameters are securely salted and hashed using standard bcrypt rounds before writing to database clusters.</p>
                 </div>
               </div>
 
