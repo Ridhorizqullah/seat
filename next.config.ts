@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config) => {
+    config.module = {
+      ...config.module,
+      exprContextCritical: false, // Suppresses critical dependency warnings (e.g. from @supabase/realtime-js)
+    };
+    return config;
+  },
   async headers() {
     return [
       {
