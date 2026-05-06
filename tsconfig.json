@@ -28,6 +28,8 @@
     "**/*.test.ts",
     "**/*.test.tsx",
     "__tests__/**",
+    "scratch/**",
+    "scripts/**",
     "vitest.setup.ts",
     "vitest.config.ts"
   ]
