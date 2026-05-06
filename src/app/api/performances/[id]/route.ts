@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, supabaseService } from '@/lib/supabase'
+import { supabaseService } from '@/lib/supabase'
 
 interface UpdatePerformanceRequest {
   showId?: string
