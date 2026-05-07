@@ -43,8 +43,9 @@ export async function GET(
       }, { status: 404 })
     }
 
-    // 2. Get all seats for this show (New Logic)
-    const { data: seats, error: seatsError } = await supabaseService
+    // 2. Get all seats for this show (New Logic with Seating Layout fallback)
+    let seats: any[] = []
+    const { data: showSeats, error: seatsError } = await supabaseService
       .from('seats')
       .select('*')
       .eq('show_id', performance.showId)
@@ -53,6 +54,23 @@ export async function GET(
 
     if (seatsError) {
       throw new Error(`Database error: ${seatsError.message}`)
+    }
+
+    if (showSeats && showSeats.length > 0) {
+      seats = showSeats
+    } else {
+      // Fall back to layout-scoped seats
+      const { data: layoutSeats, error: layoutSeatsError } = await supabaseService
+        .from('seats')
+        .select('*')
+        .eq('seatingLayoutId', seatingLayoutId)
+        .order('row', { ascending: true })
+        .order('number', { ascending: true })
+
+      if (layoutSeatsError) {
+        throw new Error(`Database error: ${layoutSeatsError.message}`)
+      }
+      seats = layoutSeats || []
     }
 
     // 3. Get booked seats for this performance
