@@ -241,7 +241,7 @@ export default function EventListPage() {
                                  <p className="text-3xl font-black text-white">£{event.adultPrice}</p>
                               </div>
                               <Link 
-                                href={`/events/${event.id}`}
+                                href={`/events/${event.slug}`}
                                 className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-teal-500 hover:text-slate-900 transition-all shadow-xl active:scale-95"
                               >
                                 View Details

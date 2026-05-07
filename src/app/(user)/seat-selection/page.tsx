@@ -154,7 +154,7 @@ function SeatSelectionContent() {
         <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link 
-              href={`/events/${show.id}`}
+              href={`/events/${show.slug}`}
               className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900"
             >
               <ArrowLeft className="w-6 h-6" />

@@ -23,7 +23,10 @@ export async function GET(
   try {
     const { id } = await params
 
-    const { data: show, error } = await supabaseService
+    // Check if the parameter is a valid UUID format
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+
+    const query = supabaseService
       .from('shows')
       .select(`
         id,
@@ -61,8 +64,11 @@ export async function GET(
           columns
         )
       `)
-      .eq('id', id)
-      .single()
+
+    const { data: show, error } = await (isUuid 
+      ? query.eq('id', id) 
+      : query.eq('slug', id)
+    ).single()
 
     if (error) {
       console.error('Error fetching show:', error)
