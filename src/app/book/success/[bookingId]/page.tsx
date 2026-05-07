@@ -12,7 +12,6 @@ import {
   Info,
   ShieldCheck
 } from 'lucide-react'
-import { RedirectTimer } from '@/components/user/RedirectTimer'
 
 async function fetchBooking(identifier: string) {
   const supabase = getServerSupabase()
@@ -131,7 +130,6 @@ export default async function BookingSuccessPage({
           <p className="text-slate-500 font-medium max-w-md mx-auto">
             Terima kasih, **{customer?.firstName}**. Pesanan Anda telah dikonfirmasi dan tiket elektronik telah dikirim ke **{customer?.email}**.
           </p>
-          <RedirectTimer target="/tickets" delay={8000} />
         </div>
       </div>
 

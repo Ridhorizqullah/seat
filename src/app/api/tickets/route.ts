@@ -110,10 +110,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Filter results to only return PAID or CONFIRMED bookings for the customer's digital wallet/tickets view.
+    // This prevents unpaid PENDING checkouts or abandoned sessions from appearing as active tickets.
+    const activeTickets = results.filter(booking => booking.status !== 'PENDING')
+
     return NextResponse.json({
       success: true,
       status: 'success',
-      data: results
+      data: activeTickets
     })
 
   } catch (error: any) {
