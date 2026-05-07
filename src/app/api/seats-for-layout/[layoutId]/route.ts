@@ -22,22 +22,54 @@ export async function GET(
       }, { status: 404 })
     }
 
-    // Fetch seats for this layout (scoped by showId if provided)
+    // Fetch seats for this layout
+    // Strategy: if showId provided, try show_id first; fall back to seatingLayoutId
     const showId = request.nextUrl.searchParams.get('showId')
-    
-    let query = supabase
-      .from('seats')
-      .select('*')
+
+    let seats: any[] = []
+    let seatsError: any = null
 
     if (showId) {
-      query = query.eq('show_id', showId)
-    } else {
-      query = query.eq('seatingLayoutId', layoutId)
-    }
+      const { data: showSeats, error: showSeatsError } = await supabase
+        .from('seats')
+        .select('*')
+        .eq('show_id', showId)
+        .order('row', { ascending: true })
+        .order('number', { ascending: true })
 
-    const { data: seats, error: seatsError } = await query
-      .order('row', { ascending: true })
-      .order('number', { ascending: true })
+      if (showSeatsError) {
+        seatsError = showSeatsError
+      } else if (showSeats && showSeats.length > 0) {
+        seats = showSeats
+      } else {
+        // No show-scoped seats found — fall back to layout-scoped seats
+        const { data: layoutSeats, error: layoutSeatsError } = await supabase
+          .from('seats')
+          .select('*')
+          .eq('seatingLayoutId', layoutId)
+          .order('row', { ascending: true })
+          .order('number', { ascending: true })
+
+        if (layoutSeatsError) {
+          seatsError = layoutSeatsError
+        } else {
+          seats = layoutSeats || []
+        }
+      }
+    } else {
+      const { data: layoutSeats, error: layoutSeatsError } = await supabase
+        .from('seats')
+        .select('*')
+        .eq('seatingLayoutId', layoutId)
+        .order('row', { ascending: true })
+        .order('number', { ascending: true })
+
+      if (layoutSeatsError) {
+        seatsError = layoutSeatsError
+      } else {
+        seats = layoutSeats || []
+      }
+    }
 
     if (seatsError) {
       console.error('Error fetching seats:', seatsError)
@@ -51,7 +83,7 @@ export async function GET(
       success: true,
       data: {
         layout: layout,
-        seats: seats || []
+        seats: seats
       }
     })
 

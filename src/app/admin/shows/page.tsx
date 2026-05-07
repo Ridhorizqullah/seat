@@ -47,7 +47,6 @@ interface EditingShow {
   childPrice: number
   concessionPrice: number
   status: string
-  capacity: number
 }
 
 interface EditingPerformance {
@@ -56,6 +55,7 @@ interface EditingPerformance {
   dateTime: string
   isMatinee: boolean
   notes: string
+  capacity: number | null
 }
 
 export default function AdminShowsPage() {
@@ -105,8 +105,7 @@ export default function AdminShowsPage() {
       adultPrice: show.adultPrice,
       childPrice: show.childPrice,
       concessionPrice: show.concessionPrice,
-      status: show.status,
-      capacity: show.seats?.[0]?.count || 50
+      status: show.status
     })
     setShowEditModal(true)
   }
@@ -122,8 +121,7 @@ export default function AdminShowsPage() {
       adultPrice: 25.00,
       childPrice: 15.00,
       concessionPrice: 20.00,
-      status: 'DRAFT',
-      capacity: 50
+      status: 'DRAFT'
     })
     setShowEditModal(true)
   }
@@ -171,7 +169,8 @@ export default function AdminShowsPage() {
       showId: selectedShowForPerformances.id,
       dateTime: new Date().toISOString().slice(0, 16),
       isMatinee: false,
-      notes: ''
+      notes: '',
+      capacity: null
     })
     setPerformanceEditModal(true)
   }
@@ -182,7 +181,8 @@ export default function AdminShowsPage() {
       showId: selectedShowForPerformances?.id || '',
       dateTime: new Date(performance.dateTime).toISOString().slice(0, 16),
       isMatinee: performance.isMatinee,
-      notes: performance.notes || ''
+      notes: performance.notes || '',
+      capacity: (performance as any).capacity ?? null
     })
     setPerformanceEditModal(true)
   }
@@ -600,18 +600,6 @@ export default function AdminShowsPage() {
                       <option value="ARCHIVED">Archived</option>
                     </select>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 mb-1">Capacity (Seats)</label>
-                    <input
-                      type="number"
-                      value={editingShow.capacity}
-                      onChange={(e) => setEditingShow(prev => prev ? {...prev, capacity: parseInt(e.target.value) || 0} : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      min="1"
-                      placeholder="e.g., 50"
-                    />
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -770,6 +758,19 @@ export default function AdminShowsPage() {
                     onChange={(e) => setEditingPerformance(prev => prev ? {...prev, dateTime: e.target.value} : null)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-800 mb-1">Capacity (Seats)</label>
+                  <input
+                    type="number"
+                    value={editingPerformance.capacity ?? ''}
+                    onChange={(e) => setEditingPerformance(prev => prev ? {...prev, capacity: e.target.value ? parseInt(e.target.value) : null} : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    min="1"
+                    placeholder="e.g., 50 (optional)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Leave blank to use the venue&apos;s default capacity.</p>
                 </div>
               </div>
 

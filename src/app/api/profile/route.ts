@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, firstName, lastName, phone, address, newPassword } = body
+    const { email, newEmail, firstName, lastName, phone, address, newPassword } = body
 
     if (!email) {
       return NextResponse.json({
@@ -70,7 +70,6 @@ export async function PUT(request: NextRequest) {
       const salt = await bcrypt.genSalt(10)
       const hashedPassword = await bcrypt.hash(newPassword, salt)
       
-      // Update in users table (primary nextauth account table)
       const { error: userError } = await supabase
         .from('users')
         .update({ 
@@ -84,7 +83,6 @@ export async function PUT(request: NextRequest) {
         throw new Error(`Failed to update authentication credentials: ${userError.message}`)
       }
 
-      // Sync into customers table (contains hashedPassword as well)
       await supabase
         .from('customers')
         .update({ 
@@ -94,37 +92,110 @@ export async function PUT(request: NextRequest) {
         .eq('email', email)
     }
 
-    // 2. Build profile update payload
+    // 2. Handle email change if newEmail is provided and different
+    const targetEmail = (newEmail && newEmail !== email) ? newEmail : email
+    if (newEmail && newEmail !== email) {
+      // Check email not already taken
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', newEmail)
+        .maybeSingle()
+      if (existingUser) {
+        return NextResponse.json({
+          success: false,
+          status: 'error',
+          message: 'Email address is already in use by another account.',
+          error: 'Email already in use'
+        }, { status: 409 })
+      }
+
+      // Update email in users table
+      const { error: userEmailError } = await supabase
+        .from('users')
+        .update({ email: newEmail, updatedAt: new Date().toISOString() })
+        .eq('email', email)
+      if (userEmailError) throw new Error(`Failed to update email in users: ${userEmailError.message}`)
+
+      // Update email in customers table
+      await supabase
+        .from('customers')
+        .update({ email: newEmail, updatedAt: new Date().toISOString() })
+        .eq('email', email)
+    }
+
+    // 3. Build profile update payload
     const updateData: any = { updatedAt: new Date().toISOString() }
     if (firstName !== undefined) updateData.firstName = firstName
     if (lastName !== undefined) updateData.lastName = lastName
     if (phone !== undefined) updateData.phone = phone
     if (address !== undefined) updateData.address = address
 
-    const { data: customer, error } = await supabase
+    // 4. Check if customer record exists; if not, create it (upsert)
+    const { data: existingCustomer } = await supabase
       .from('customers')
-      .update(updateData)
-      .eq('email', email)
-      .select()
-      .single()
+      .select('id')
+      .eq('email', targetEmail)
+      .maybeSingle()
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({
-          success: false,
-          status: 'error',
-          message: 'Profile not found',
-          error: 'Profile not found'
-        }, { status: 404 })
-      }
-      throw new Error(`Database error: ${error.message}`)
+    let customer: any
+    if (!existingCustomer) {
+      // Get user id to use as customer id for consistency
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', targetEmail)
+        .maybeSingle()
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('customers')
+        .insert({
+          id: userRow?.id || crypto.randomUUID(),
+          email: targetEmail,
+          firstName: firstName || '',
+          lastName: lastName || '',
+          phone: phone || null,
+          address: address || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (insertError) throw new Error(`Failed to create customer profile: ${insertError.message}`)
+      customer = inserted
+    } else {
+      const { data: updated, error: updateError } = await supabase
+        .from('customers')
+        .update(updateData)
+        .eq('email', targetEmail)
+        .select()
+        .single()
+
+      if (updateError) throw new Error(`Database error: ${updateError.message}`)
+      customer = updated
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       status: 'success',
-      data: customer
+      data: customer,
+      emailChanged: newEmail && newEmail !== email ? true : false,
+      newEmail: newEmail && newEmail !== email ? newEmail : undefined
     })
+
+    // Update cookie if email changed
+    if (newEmail && newEmail !== email) {
+      const cookieOptions = {
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 * 7
+      }
+      response.cookies.set('user_email', newEmail, cookieOptions)
+    }
+
+    return response
 
   } catch (error: any) {
     console.error('Error updating profile:', error)

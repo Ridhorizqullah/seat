@@ -26,6 +26,7 @@ export default function ProfilePage() {
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
+    email: '',
     phone: '',
     address: ''
   })
@@ -87,12 +88,14 @@ export default function ProfilePage() {
           setForm({
             firstName: profileData.data.firstName || '',
             lastName: profileData.data.lastName || '',
+            email: userEmail,
             phone: profileData.data.phone || '',
             address: profileData.data.address || ''
           })
           profileName = `${profileData.data.firstName || ''} ${profileData.data.lastName || ''}`.trim() || profileName
         } else {
           setCustomer({ email: userEmail })
+          setForm(prev => ({ ...prev, email: userEmail }))
         }
 
         // 4. Load Saved Cards from LocalStorage
@@ -142,6 +145,7 @@ export default function ProfilePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: session.email,
+          newEmail: form.email !== session.email ? form.email : undefined,
           firstName: form.firstName,
           lastName: form.lastName,
           phone: form.phone,
@@ -153,8 +157,27 @@ export default function ProfilePage() {
 
       if (data.success) {
         setCustomer(data.data)
-        setMessage({ type: 'success', text: 'Profile details updated successfully!' })
-        setTimeout(() => setMessage(null), 3000)
+        if (data.emailChanged && data.newEmail) {
+          // Migrate localStorage keys to new email
+          const oldEmail = session.email
+          const newEmail = data.newEmail
+          const oldAvatar = localStorage.getItem(`eventseats_avatar_${oldEmail}`)
+          const oldCards = localStorage.getItem(`eventseats_cards_${oldEmail}`)
+          if (oldAvatar) {
+            localStorage.setItem(`eventseats_avatar_${newEmail}`, oldAvatar)
+            localStorage.removeItem(`eventseats_avatar_${oldEmail}`)
+          }
+          if (oldCards) {
+            localStorage.setItem(`eventseats_cards_${newEmail}`, oldCards)
+            localStorage.removeItem(`eventseats_cards_${oldEmail}`)
+          }
+          // Update session state to new email
+          setSession((prev: any) => ({ ...prev, email: newEmail }))
+          setMessage({ type: 'success', text: `Profile updated! Email changed to ${newEmail}. Please log in again if needed.` })
+        } else {
+          setMessage({ type: 'success', text: 'Profile details updated successfully!' })
+        }
+        setTimeout(() => setMessage(null), 4000)
       } else {
         setMessage({ type: 'error', text: data.message || 'Failed to update profile' })
       }
@@ -919,13 +942,20 @@ Thank you for booking with EventSeats!
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address (Read-Only)</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
                   <input 
                     type="email" 
-                    value={session?.email || ''} 
-                    disabled
-                    className="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50 text-sm font-semibold text-slate-400 cursor-not-allowed"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    placeholder="e.g. user@example.com"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:border-teal-500 transition-colors"
                   />
+                  {form.email !== session?.email && (
+                    <p className="text-xs text-amber-600 font-semibold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">warning</span>
+                      Changing your email will update your login credentials.
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
