@@ -22,11 +22,20 @@ export async function GET(
       }, { status: 404 })
     }
 
-    // Fetch seats for this layout
-    const { data: seats, error: seatsError } = await supabase
+    // Fetch seats for this layout (scoped by showId if provided)
+    const showId = request.nextUrl.searchParams.get('showId')
+    
+    let query = supabase
       .from('seats')
       .select('*')
-      .eq('seatingLayoutId', layoutId)
+
+    if (showId) {
+      query = query.eq('show_id', showId)
+    } else {
+      query = query.eq('seatingLayoutId', layoutId)
+    }
+
+    const { data: seats, error: seatsError } = await query
       .order('row', { ascending: true })
       .order('number', { ascending: true })
 

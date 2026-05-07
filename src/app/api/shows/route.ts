@@ -29,9 +29,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Generate slug from title
-    const slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-
     const session = await getServerSession()
     if (!session || !session.organizationId) {
       return NextResponse.json({
@@ -39,6 +36,34 @@ export async function POST(request: NextRequest) {
         error: 'Unauthorized: No organization associated with this account'
       }, { status: 401 })
     }
+
+    // Generate slug from title (with collision protection)
+    let slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    let isUnique = false
+    let suffix = 1
+    let finalSlug = slug
+
+    while (!isUnique) {
+      const { data: existingShow, error: checkError } = await supabaseService
+        .from('shows')
+        .select('id')
+        .eq('organizationId', session.organizationId)
+        .eq('slug', finalSlug)
+        .maybeSingle()
+
+      if (checkError) {
+        console.error('Error checking slug uniqueness:', checkError)
+        throw new Error(`Database error during slug validation: ${checkError.message}`)
+      }
+
+      if (!existingShow) {
+        isUnique = true
+      } else {
+        finalSlug = `${slug}-${suffix}`
+        suffix++
+      }
+    }
+    slug = finalSlug
 
     // Get the first available venue and seating layout for this organization
     const { data: venue } = await supabaseService
@@ -121,6 +146,8 @@ export async function POST(request: NextRequest) {
 
     if (seatError) {
       console.error("Gagal generate kursi:", seatError)
+      // Clean up the orphaned show to prevent partial state and future slug conflicts
+      await supabaseService.from('shows').delete().eq('id', showId)
       throw new Error(`Failed to generate seats: ${seatError.message}`)
     }
     // ---------------------------------------------------------

@@ -98,7 +98,7 @@ export default function EmbedBookingRoute() {
         setPerformance(foundPerformance)
 
         // Fetch real seating layout and seats from database
-        const seatingResponse = await fetch(`/api/seats-for-layout/${foundShow.seatingLayoutId || '869f0aca-0611-4b8b-bf16-b9356854b35a'}`)
+        const seatingResponse = await fetch(`/api/seats-for-layout/${foundShow.seatingLayoutId || '869f0aca-0611-4b8b-bf16-b9356854b35a'}?showId=${foundShow.id}`)
         const seatingData = await seatingResponse.json()
 
         if (seatingData.success) {

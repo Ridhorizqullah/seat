@@ -108,12 +108,21 @@ async function seedAdminUser() {
       }
     }
 
+    // First delete any existing layout-level template seats (where show_id is null)
+    const { error: deleteSeatsError } = await supabase
+      .from('seats')
+      .delete()
+      .eq('seatingLayoutId', seatingLayout.id)
+      .is('show_id', null)
+
+    if (deleteSeatsError) {
+      throw new Error(`Failed to delete legacy seats: ${deleteSeatsError.message}`)
+    }
+
     // Create seats in batches
     const { error: seatsError } = await supabase
       .from('seats')
-      .upsert(seats, {
-        onConflict: 'seatingLayoutId,row,number'
-      })
+      .insert(seats)
 
     if (seatsError) {
       throw new Error(`Failed to create seats: ${seatsError.message}`)

@@ -104,13 +104,57 @@ export async function PUT(
     const { id } = await params
     const body: UpdateShowRequest = await request.json()
 
+    // Fetch current show details
+    const { data: currentShow, error: showFetchError } = await supabaseService
+      .from('shows')
+      .select('organizationId, title, slug, seatingLayoutId')
+      .eq('id', id)
+      .single()
+
+    if (showFetchError || !currentShow) {
+      console.error('Error fetching show for updates:', showFetchError)
+      return NextResponse.json({
+        success: false,
+        error: 'Show not found'
+      }, { status: 404 })
+    }
+
     // Build update object (only include provided fields)
     const updateData: any = {}
 
     if (body.title !== undefined) {
       updateData.title = body.title
-      // Update slug when title changes
-      updateData.slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      
+      // Update slug when title actually changes to prevent collision
+      if (body.title !== currentShow.title) {
+        const slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+        let isUnique = false
+        let suffix = 1
+        let finalSlug = slug
+
+        while (!isUnique) {
+          const { data: existingShow, error: checkError } = await supabaseService
+            .from('shows')
+            .select('id')
+            .eq('organizationId', currentShow.organizationId)
+            .eq('slug', finalSlug)
+            .neq('id', id) // Exclude current show
+            .maybeSingle()
+
+          if (checkError) {
+            console.error('Error checking slug uniqueness:', checkError)
+            throw new Error(`Database error during slug validation: ${checkError.message}`)
+          }
+
+          if (!existingShow) {
+            isUnique = true
+          } else {
+            finalSlug = `${slug}-${suffix}`
+            suffix++
+          }
+        }
+        updateData.slug = finalSlug
+      }
     }
     if (body.description !== undefined) updateData.description = body.description
     if (body.imageUrl !== undefined) updateData.imageUrl = body.imageUrl
@@ -147,19 +191,7 @@ export async function PUT(
         }, { status: 400 })
       }
 
-      // 2. Fetch the current show to find its seatingLayoutId
-      const { data: currentShow, error: showFetchError } = await supabaseService
-        .from('shows')
-        .select('seatingLayoutId')
-        .eq('id', id)
-        .single()
-
-      if (showFetchError) {
-        console.error('Error fetching show for seat resizing:', showFetchError)
-        throw new Error(`Database error: ${showFetchError.message}`)
-      }
-
-      // 3. Delete existing seats
+      // 2. Delete existing seats
       const { error: deleteSeatsError } = await supabaseService
         .from('seats')
         .delete()
@@ -170,7 +202,7 @@ export async function PUT(
         throw new Error(`Database error: ${deleteSeatsError.message}`)
       }
 
-      // 4. Generate and insert new seats
+      // 3. Generate and insert new seats
       const capacity = body.capacity
       const seatsToInsert = []
       const seatsPerRow = 10

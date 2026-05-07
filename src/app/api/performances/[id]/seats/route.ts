@@ -47,7 +47,7 @@ export async function GET(
     const { data: seats, error: seatsError } = await supabaseService
       .from('seats')
       .select('*')
-      .eq('seatingLayoutId', seatingLayoutId)
+      .eq('show_id', performance.showId)
       .order('row', { ascending: true })
       .order('number', { ascending: true })
 

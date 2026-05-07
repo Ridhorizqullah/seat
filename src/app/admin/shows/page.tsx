@@ -248,6 +248,30 @@ export default function AdminShowsPage() {
     }
   }
 
+  const handleDeleteShow = async (showId: string) => {
+    if (!confirm('Are you sure you want to delete this show? This action will also delete all associated performances and cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/shows/${showId}`, {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        await fetchShows() // Refresh the list
+        alert('Show deleted successfully!')
+      } else {
+        alert('Failed to delete show: ' + (data.error || 'Unknown error'))
+      }
+    } catch (error) {
+      console.error('Error deleting show:', error)
+      alert('Failed to delete show: ' + error)
+    }
+  }
+
   const formatDateTime = (dateTime: string) => {
     return new Intl.DateTimeFormat('en-GB', {
       weekday: 'short',
@@ -454,6 +478,12 @@ export default function AdminShowsPage() {
                           className="text-blue-600 hover:text-blue-900 mr-4"
                         >
                           Performances
+                        </button>
+                        <button
+                          onClick={() => handleDeleteShow(show.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
                         </button>
                       </td>
                     </tr>
