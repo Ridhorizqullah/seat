@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseService } from '@/lib/supabase'
+import { getServerSession } from '@/lib/auth-server'
 import * as bcrypt from 'bcryptjs'
 
 export async function GET(request: NextRequest) {
@@ -16,7 +17,28 @@ export async function GET(request: NextRequest) {
       }, { status: 400 })
     }
 
-    const { data: customer, error } = await supabase
+    // Secure the endpoint by verifying active session
+    const session = await getServerSession()
+    if (!session) {
+      return NextResponse.json({
+        success: false,
+        status: 'error',
+        message: 'Unauthorized: No active session found',
+        error: 'Unauthorized'
+      }, { status: 401 })
+    }
+
+    // Only allow users to fetch their own profile, unless they are an ADMIN
+    if (session.email !== email && session.role !== 'ADMIN') {
+      return NextResponse.json({
+        success: false,
+        status: 'error',
+        message: 'Forbidden: You do not have permission to view this profile',
+        error: 'Forbidden'
+      }, { status: 403 })
+    }
+
+    const { data: customer, error } = await supabaseService
       .from('customers')
       .select('*')
       .eq('email', email)
@@ -65,12 +87,33 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 })
     }
 
+    // Secure the endpoint by verifying active session
+    const session = await getServerSession()
+    if (!session) {
+      return NextResponse.json({
+        success: false,
+        status: 'error',
+        message: 'Unauthorized: No active session found',
+        error: 'Unauthorized'
+      }, { status: 401 })
+    }
+
+    // Only allow users to update their own profile, unless they are an ADMIN
+    if (session.email !== email && session.role !== 'ADMIN') {
+      return NextResponse.json({
+        success: false,
+        status: 'error',
+        message: 'Forbidden: You do not have permission to update this profile',
+        error: 'Forbidden'
+      }, { status: 403 })
+    }
+
     // 1. Handle password update if provided
     if (newPassword) {
       const salt = await bcrypt.genSalt(10)
       const hashedPassword = await bcrypt.hash(newPassword, salt)
       
-      const { error: userError } = await supabase
+      const { error: userError } = await supabaseService
         .from('users')
         .update({ 
           hashedPassword, 
@@ -83,7 +126,7 @@ export async function PUT(request: NextRequest) {
         throw new Error(`Failed to update authentication credentials: ${userError.message}`)
       }
 
-      await supabase
+      await supabaseService
         .from('customers')
         .update({ 
           hashedPassword, 
@@ -96,7 +139,7 @@ export async function PUT(request: NextRequest) {
     const targetEmail = (newEmail && newEmail !== email) ? newEmail : email
     if (newEmail && newEmail !== email) {
       // Check email not already taken
-      const { data: existingUser } = await supabase
+      const { data: existingUser } = await supabaseService
         .from('users')
         .select('id')
         .eq('email', newEmail)
@@ -111,14 +154,14 @@ export async function PUT(request: NextRequest) {
       }
 
       // Update email in users table
-      const { error: userEmailError } = await supabase
+      const { error: userEmailError } = await supabaseService
         .from('users')
         .update({ email: newEmail, updatedAt: new Date().toISOString() })
         .eq('email', email)
       if (userEmailError) throw new Error(`Failed to update email in users: ${userEmailError.message}`)
 
       // Update email in customers table
-      await supabase
+      await supabaseService
         .from('customers')
         .update({ email: newEmail, updatedAt: new Date().toISOString() })
         .eq('email', email)
@@ -132,7 +175,7 @@ export async function PUT(request: NextRequest) {
     if (address !== undefined) updateData.address = address
 
     // 4. Check if customer record exists; if not, create it (upsert)
-    const { data: existingCustomer } = await supabase
+    const { data: existingCustomer } = await supabaseService
       .from('customers')
       .select('id')
       .eq('email', targetEmail)
@@ -141,13 +184,13 @@ export async function PUT(request: NextRequest) {
     let customer: any
     if (!existingCustomer) {
       // Get user id to use as customer id for consistency
-      const { data: userRow } = await supabase
+      const { data: userRow } = await supabaseService
         .from('users')
         .select('id')
         .eq('email', targetEmail)
         .maybeSingle()
 
-      const { data: inserted, error: insertError } = await supabase
+      const { data: inserted, error: insertError } = await supabaseService
         .from('customers')
         .insert({
           id: userRow?.id || crypto.randomUUID(),
@@ -165,7 +208,7 @@ export async function PUT(request: NextRequest) {
       if (insertError) throw new Error(`Failed to create customer profile: ${insertError.message}`)
       customer = inserted
     } else {
-      const { data: updated, error: updateError } = await supabase
+      const { data: updated, error: updateError } = await supabaseService
         .from('customers')
         .update(updateData)
         .eq('email', targetEmail)
@@ -207,4 +250,3 @@ export async function PUT(request: NextRequest) {
     }, { status: 500 })
   }
 }
-
