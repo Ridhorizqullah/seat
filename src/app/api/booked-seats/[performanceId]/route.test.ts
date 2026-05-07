@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { GET } from './route'
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
+vi.mock('@/lib/supabase', () => {
+  const mockClient = {
     from: (_: string) => ({
       select: () => ({
         eq: () => ({
@@ -15,8 +15,12 @@ vi.mock('@/lib/supabase', () => ({
         }),
       }),
     }),
-  },
-}))
+  }
+  return {
+    supabase: mockClient,
+    getServerSupabase: () => mockClient,
+  }
+})
 
 const makeRequest = (url: string) => new Request(url)
 
@@ -31,8 +35,8 @@ describe('GET /api/booked-seats/[performanceId]', () => {
 
   it('includes PENDING reservations as blocked seats', async () => {
     // Remock supabase to return PENDING status
-    vi.doMock('@/lib/supabase', () => ({
-      supabase: {
+    vi.doMock('@/lib/supabase', () => {
+      const mockClient = {
         from: (_: string) => ({
           select: () => ({
             eq: () => ({
@@ -45,8 +49,12 @@ describe('GET /api/booked-seats/[performanceId]', () => {
             }),
           }),
         }),
-      },
-    }))
+      }
+      return {
+        supabase: mockClient,
+        getServerSupabase: () => mockClient,
+      }
+    })
 
     const { GET: GETFresh } = await import('./route')
     const res = await GETFresh(makeRequest('http://localhost/api/booked-seats/perf-1') as any, { params: Promise.resolve({ performanceId: 'perf-1' }) })

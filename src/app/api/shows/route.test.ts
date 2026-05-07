@@ -11,8 +11,8 @@ const makeQuery = (data: any) => ({
   error: null,
 })
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
+vi.mock('@/lib/supabase', () => {
+  const mockClient = {
     from: (_: string) => ({
       select: (_sel: string) => makeQuery([
         {
@@ -36,8 +36,12 @@ vi.mock('@/lib/supabase', () => ({
         },
       ]),
     }),
-  },
-}))
+  }
+  return {
+    supabase: mockClient,
+    supabaseService: mockClient,
+  }
+})
 
 const makeRequest = (url: string) => new Request(url)
 

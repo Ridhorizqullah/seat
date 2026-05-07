@@ -39,6 +39,37 @@ export async function POST(request: NextRequest) {
     const title = show?.title || 'Performance'
     const serviceFeeMinor = 250 // £2.50 in pence
 
+    // --- START SEAT OCCUPANCY CHECK ---
+    const requestedSeatIds = seats.map((s: any) => s.seatId || s.id).filter(Boolean)
+
+    if (requestedSeatIds.length > 0) {
+      // Query booking_items to see if any of these seatIds are already reserved/paid for this performance
+      const { data: existingBookedItems, error: checkError } = await supabase
+        .from('booking_items')
+        .select(`
+          seatId,
+          bookings!inner (
+            status,
+            performanceId
+          )
+        `)
+        .eq('bookings.performanceId', performanceId)
+        .in('bookings.status', ['PENDING', 'CONFIRMED', 'PAID', 'CHECKED_IN'])
+        .in('seatId', requestedSeatIds)
+
+      if (checkError) {
+        return NextResponse.json({ success: false, error: `Error validating seat availability: ${checkError.message}` }, { status: 500 })
+      }
+
+      if (existingBookedItems && existingBookedItems.length > 0) {
+        return NextResponse.json({
+          success: false,
+          error: 'Beberapa kursi yang Anda pilih baru saja dipesan oleh pengguna lain. Silakan kembali ke halaman pemilihan kursi dan pilih kursi yang tersedia.'
+        }, { status: 400 })
+      }
+    }
+    // --- END SEAT OCCUPANCY CHECK ---
+
     const currency = 'GBP'
     const subtotalMinor = calculateTotalMinor(
       { adult: Number(show?.adultPrice || 0), child: Number(show?.childPrice || 0), concession: Number(show?.concessionPrice || 0) },

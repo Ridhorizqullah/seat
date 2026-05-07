@@ -272,6 +272,8 @@ export default function AdminBookingsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Booking</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Customer</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Show</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Seats</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
               </tr>
             </thead>
@@ -281,6 +283,10 @@ export default function AdminBookingsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{booking.bookingNumber}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.customer?.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.show?.title}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {booking.bookingItems?.map(item => `${item.seat?.row}${item.seat?.number}`).join(', ') || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">£{booking.totalAmount?.toFixed(2)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(booking.status)}`}>
                       {booking.status}

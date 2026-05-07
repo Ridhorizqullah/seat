@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { NextRequest } from 'next/server'
 
 const PERF_ID = 'e34b9d88-b221-4d37-97d5-d01d1981e4a1'
-const SEAT_1_ID = 'a1111111-1111-1111-1111-111111111111'
-const SEAT_2_ID = 'b2222222-2222-2222-2222-222222222222'
+const SEAT_1_ID = 'a1111111-1111-4111-a111-111111111111'
+const SEAT_2_ID = 'b2222222-2222-4222-a222-222222222222'
 
 // Minimal in-memory fixtures
 const perf = {

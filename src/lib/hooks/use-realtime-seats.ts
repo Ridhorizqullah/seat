@@ -12,20 +12,11 @@ export function useRealtimeSeats(performanceId: string) {
     const fetchBookedSeats = async () => {
       try {
         setLoading(true)
-        const { data, error } = await supabase
-          .from('booking_items')
-          .select(`
-            seatId,
-            bookings!inner (
-              status,
-              performanceId
-            )
-          `)
-          .eq('bookings.performanceId', performanceId)
-          .in('bookings.status', ['PENDING', 'CONFIRMED', 'PAID', 'CHECKED_IN'])
-
-        if (error) throw error
-        setBookedSeats(data?.map(item => item.seatId) || [])
+        const res = await fetch(`/api/booked-seats/${performanceId}`)
+        const json = await res.json()
+        if (json.success && json.data) {
+          setBookedSeats(json.data.bookedSeatIds || [])
+        }
       } catch (err) {
         console.error('Error fetching booked seats:', err)
       } finally {

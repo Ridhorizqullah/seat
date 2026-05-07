@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, supabaseService } from '@/lib/supabase'
+import { supabaseService } from '@/lib/supabase'
 
 export async function GET(
   request: NextRequest,
@@ -74,7 +74,7 @@ export async function GET(
     }
 
     // 3. Get booked seats for this performance
-    const { data: bookedItems, error: bookedError } = await supabase
+    const { data: bookedItems, error: bookedError } = await supabaseService
       .from('booking_items')
       .select(`
         seatId,

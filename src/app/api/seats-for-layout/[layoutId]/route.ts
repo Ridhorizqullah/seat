@@ -22,9 +22,9 @@ export async function GET(
       }, { status: 404 })
     }
 
-    // Fetch seats for this layout
     // Strategy: if showId provided, try show_id first; fall back to seatingLayoutId
-    const showId = request.nextUrl.searchParams.get('showId')
+    const url = new URL(request.url)
+    const showId = url.searchParams.get('showId')
 
     let seats: any[] = []
     let seatsError: any = null

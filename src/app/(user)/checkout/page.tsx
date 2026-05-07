@@ -54,6 +54,23 @@ function CheckoutContent() {
         if (data.success && data.data) {
           const currentUser = data.data
           setEmail(currentUser.email || '')
+          
+          // Fetch additional profile fields to pre-populate name and phone
+          try {
+            const profileRes = await fetch(`/api/profile?email=${currentUser.email}`)
+            if (profileRes.ok) {
+              const profileData = await profileRes.json()
+              if (profileData.success && profileData.data) {
+                const customer = profileData.data
+                const full = `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+                setFullName(full)
+                setPhone(customer.phone || '')
+              }
+            }
+          } catch (profileErr) {
+            console.error('Error fetching profile for auto-fill:', profileErr)
+          }
+
           setAuthLoading(false)
         } else {
           router.push('/login?callbackUrl=/checkout?' + searchParams.toString())

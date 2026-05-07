@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
         success: false,
         status: 'error',
         message: 'Some seats were just taken. Please refresh and try again.',
+        alreadyBookedSeats: alreadyBooked,
         data: { alreadyBookedSeats: alreadyBooked }
       }, { status: 409 })
     }
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
     // 4. Get performance and show details
     const { data: performance, error: perfError } = await supabase
       .from('performances')
-      .select('id, showId')
+      .select('id, showId, shows(title)')
       .eq('id', performanceId)
       .single()
 
@@ -193,11 +194,26 @@ export async function POST(request: NextRequest) {
 
     logger.info('Booking successfully initiated', { bookingId, bookingNumber })
 
+    const showTitle = (performance as any)?.shows?.title || ''
+
     return NextResponse.json({
       success: true,
       status: 'success',
       message: 'Order initiated',
       data: { 
+        booking: {
+          id: bookingId,
+          bookingNumber,
+          status: 'PENDING',
+          createdAt: new Date().toISOString()
+        },
+        items: bookingItems,
+        performance: {
+          id: performanceId,
+          show: {
+            title: showTitle
+          }
+        },
         bookingId, 
         bookingNumber,
         status: 'PENDING'
@@ -222,6 +238,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const customerId = searchParams.get('customerId')
     const email = searchParams.get('email')
+    const status = searchParams.get('status')
+    const performanceId = searchParams.get('performanceId')
 
     if (!session) {
       return NextResponse.json({ success: false, status: 'error', message: 'Unauthorized' }, { status: 401 })
@@ -247,6 +265,14 @@ export async function GET(request: NextRequest) {
       query = query.eq('performances.shows.organizationId', session.organizationId)
     } else if (customerId) {
       query = query.eq('customerId', customerId)
+    }
+
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    if (performanceId) {
+      query = query.eq('performanceId', performanceId)
     }
 
     const { data: bookings, error } = await query.order('createdAt', { ascending: false })

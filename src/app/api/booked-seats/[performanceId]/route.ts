@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getServerSupabase } from '@/lib/supabase'
 
 export async function GET(
   request: NextRequest,
@@ -7,6 +7,7 @@ export async function GET(
 ) {
   try {
     const { performanceId } = await params
+    const supabase = getServerSupabase()
 
     // Fetch all reserved/confirmed/paid/check-in bookings for this performance with seat details
     const { data: bookedSeats, error } = await supabase

@@ -30,16 +30,19 @@ vi.mock('@/lib/supabase', () => {
     return query
   }
 
+  const mockClient = {
+    from: (table: string) => {
+      if (table !== 'bookings') throw new Error('Unexpected table')
+      return {
+        select: () => createQuery(),
+      }
+    },
+  }
+
   return {
     superset: dataset,
-    supabase: {
-      from: (table: string) => {
-        if (table !== 'bookings') throw new Error('Unexpected table')
-        return {
-          select: () => createQuery(),
-        }
-      },
-    },
+    supabase: mockClient,
+    supabaseService: mockClient,
   }
 })
 

@@ -41,7 +41,16 @@ vi.mock('@/lib/supabase', () => {
     }
   }
   function bookingItemsBuilder() {
-    return { insert: async () => ({ data: [], error: null }) }
+    return {
+      insert: async () => ({ data: [], error: null }),
+      select: () => ({
+        eq: () => ({
+          in: () => ({
+            in: async () => ({ data: [], error: null })
+          })
+        })
+      })
+    }
   }
 
   function customersBuilder() {
