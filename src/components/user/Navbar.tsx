@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { logout } from '@/lib/auth-client'
-import { Search, Bell, LogOut, User, LayoutDashboard, ArrowRight } from 'lucide-react'
+import { Bell, LogOut, User, LayoutDashboard, ArrowRight } from 'lucide-react'
 
 export default function UserNavbar() {
   const pathname = usePathname()
@@ -40,14 +40,6 @@ export default function UserNavbar() {
           <Link href="/" className="text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-400 to-indigo-400 hover:opacity-90 transition-opacity">
             EventEase
           </Link>
-          <div className="relative hidden lg:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
-            <input 
-              className="pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-800 text-slate-200 placeholder-slate-500 rounded-xl focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none w-64 transition-all text-[14px]" 
-              placeholder="Search events..." 
-              type="text"
-            />
-          </div>
         </div>
 
         <nav className="hidden md:flex items-center gap-8">
