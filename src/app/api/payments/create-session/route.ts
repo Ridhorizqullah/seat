@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     // Build a single line item with the full total to keep it simple, or expand to multiple items later
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'klarna'],
       customer_email: customer.email,
       line_items: [
         {
