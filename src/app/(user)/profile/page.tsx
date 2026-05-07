@@ -827,7 +827,7 @@ Thank you for booking with EventSeats!
                             >
                               Details
                             </button>
-                          ) : isUpcoming ? (
+                          ) : (
                             <>
                               <button 
                                 onClick={() => handleDownloadPass(booking)}
@@ -846,23 +846,6 @@ Thank you for booking with EventSeats!
                                 <span className="material-symbols-outlined text-[16px]">confirmation_number</span>
                                 View Pass
                               </button>
-                            </>
-                          ) : (
-                            <>
-                              <button 
-                                onClick={() => handleDownloadPass(booking)}
-                                className="px-5 py-2.5 rounded-xl border border-slate-200 font-bold text-[10px] uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2"
-                              >
-                                <span className="material-symbols-outlined text-[16px]">receipt_long</span>
-                                Invoice
-                              </button>
-                              <Link 
-                                href="/events"
-                                className="px-5 py-2.5 rounded-xl border border-teal-500 text-teal-600 font-bold text-[10px] uppercase tracking-widest hover:bg-teal-50 transition-all flex items-center gap-2"
-                              >
-                                <span className="material-symbols-outlined text-[16px]">history</span>
-                                Rebook
-                              </Link>
                             </>
                           )}
                         </div>
