@@ -106,6 +106,27 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         </div>
       </div>
 
+      {/* Stripe Test Mode Helper Alert */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 flex items-start space-x-3 shadow-sm">
+        <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div className="text-sm">
+          <p className="font-semibold text-blue-800">Petunjuk Pembayaran Sandbox (Stripe Test Mode):</p>
+          <p className="mt-1 text-blue-700">
+            Setelah mengklik tombol di bawah, Anda akan diarahkan ke halaman resmi Stripe Sandbox. Untuk menyelesaikan pembayaran uji coba:
+          </p>
+          <ul className="list-disc list-inside mt-2 space-y-1 font-medium text-blue-800 bg-white/60 p-2.5 rounded border border-blue-100">
+            <li>Nomor Kartu: <span className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900 select-all font-bold">4242 4242 4242 4242</span> (bisa di-copy)</li>
+            <li>Masa Berlaku: <span className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900 font-bold">Bebas di masa depan (misal: 12/28)</span></li>
+            <li>CVC: <span className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900 font-bold">123 (atau bebas 3 digit)</span></li>
+          </ul>
+          <p className="mt-2 text-xs text-blue-600">
+            *Penting: Mengetik nomor kartu secara acak akan langsung ditolak oleh algoritma validasi kartu otomatis Stripe.*
+          </p>
+        </div>
+      </div>
+
       {/* Customer Information Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
