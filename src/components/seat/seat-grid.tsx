@@ -47,20 +47,20 @@ const SeatComponent: React.FC<SeatComponentProps> = ({
   readOnly = false
 }) => {
   const getSeatStyles = () => {
-    if (isBooked) return 'bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300'
+    if (isBooked) return 'bg-blue-600 text-white cursor-not-allowed border-blue-700 opacity-60 shadow-inner'
     
     if (isSelected) {
       switch (selectedTicketType) {
-        case TicketType.ADULT: return 'bg-blue-600 text-white border-blue-700 shadow-blue-500/50'
+        case TicketType.ADULT: return 'bg-teal-600 text-white border-teal-700 shadow-teal-500/50'
         case TicketType.CHILD: return 'bg-emerald-500 text-white border-emerald-600 shadow-emerald-500/50'
         case TicketType.CONCESSION: return 'bg-purple-600 text-white border-purple-700 shadow-purple-500/50'
-        default: return 'bg-blue-600 text-white border-blue-700'
+        default: return 'bg-teal-600 text-white border-teal-700'
       }
     }
 
     if (seat.isAccessible) return 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100'
     
-    return 'bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:text-blue-600'
+    return 'bg-white text-slate-700 border-slate-200 hover:border-teal-400 hover:text-teal-600'
   }
 
   const handleClick = () => {
@@ -137,7 +137,7 @@ const TicketTypeSelector: React.FC<{
               <div className="flex items-center gap-4">
                 <div className={cn(
                   "w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md transition-all duration-500",
-                  selection.ticketType === TicketType.ADULT && "bg-blue-600",
+                  selection.ticketType === TicketType.ADULT && "bg-teal-600",
                   selection.ticketType === TicketType.CHILD && "bg-emerald-500",
                   selection.ticketType === TicketType.CONCESSION && "bg-purple-600"
                 )}>
@@ -317,10 +317,10 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
         {[
           { color: 'bg-white border-slate-200', label: 'Tersedia' },
           { color: 'bg-sky-50 border-sky-200', label: 'Aksesibel' },
-          { color: 'bg-blue-600 border-blue-700', label: 'Dewasa' },
+          { color: 'bg-teal-600 border-teal-700', label: 'Dewasa' },
           { color: 'bg-emerald-500 border-emerald-600', label: 'Anak' },
           { color: 'bg-purple-600 border-purple-700', label: 'Konsesi' },
-          { color: 'bg-gray-200 border-gray-300', label: 'Terisi' }
+          { color: 'bg-blue-600 border-blue-700', label: 'Terisi' }
         ].map((l) => (
           <div key={l.label} className="flex items-center gap-3">
             <div className={cn("w-5 h-5 rounded-md border-2 shadow-sm", l.color)}></div>
