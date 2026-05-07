@@ -104,10 +104,10 @@ export async function POST(request: NextRequest) {
 
     const stripe = getStripe()
 
-    // Use NEXTAUTH_URL as the canonical base URL; APP_URL remains optional for backwards compatibility
-    const appUrl = process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000'
-    const successUrl = `${appUrl}/book/success/{CHECKOUT_SESSION_ID}?bookingId=${bookingId}` // include bookingId for fallback
-    const cancelUrl = `${appUrl}/book/${show.id}/${performanceId}?payment=cancelled`
+    // Dynamically retrieve base URL from the request origin to automatically support both localhost and production deployment URLs (e.g. seat-mocha.vercel.app)
+    const origin = request.headers.get('origin') || new URL(request.url).origin
+    const successUrl = `${origin}/book/success/{CHECKOUT_SESSION_ID}?bookingId=${bookingId}` // include bookingId for fallback
+    const cancelUrl = `${origin}/book/${show.id}/${performanceId}?payment=cancelled`
 
     // Build a single line item with the full total to keep it simple, or expand to multiple items later
     const session = await stripe.checkout.sessions.create({
