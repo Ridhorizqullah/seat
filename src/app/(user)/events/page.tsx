@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useClarityTracking } from '@/components/providers/use-clarity-tracking'
+import { useUsabilityTracking } from '@/lib/usability-analytics'
 import { 
   Search, 
   Filter, 
@@ -22,20 +22,29 @@ export default function EventListPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedGenre, setSelectedGenre] = useState('All')
 
-  // ── Clarity Tracking ──────────────────────────────────────────────────────
+  // ── Usability & A/B Analytics Tracking ────────────────────────────────────
   const {
-    searchFocused,
-    searchTyping,
-    searchCleared,
-    searchResultsShown,
-    categorySelected,
-    categoryCleared,
-    setPageSection,
-  } = useClarityTracking()
+    trackSearchVisible,
+    trackSearchFocus,
+    trackSearchInputStarted,
+    trackSearchCompleted,
+    trackCategoryFilterVisible,
+    trackCategorySelected,
+    trackCategoryEventClicked,
+    trackEvent
+  } = useUsabilityTracking()
+
+  // Track filter step count for UC3 Browsing Efficiency metric
+  const [filterStepCount, setFilterStepCount] = useState(0)
+
+  // Track search first interaction time & filter selection start
+  const [searchStartTime] = useState(() => Date.now())
+  const [filterStartTime, setFilterStartTime] = useState<number | null>(null)
 
   useEffect(() => {
-    // Tag this page section for Clarity session segmentation
-    setPageSection('events_list')
+    // Track search bar and category filter visibility on page mount
+    trackSearchVisible()
+    trackCategoryFilterVisible()
 
     async function fetchEvents() {
       try {
@@ -70,39 +79,36 @@ export default function EventListPage() {
     })
   }, [events, searchQuery, selectedGenre])
 
-  // Notify Clarity whenever filtered results change
-  useEffect(() => {
-    if (!loading) {
-      searchResultsShown(filteredEvents.length)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredEvents.length, loading])
-
   // Stable handlers for filter interactions
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value
       setSearchQuery(val)
       if (val === '') {
-        searchCleared()
+        trackEvent('search_cleared')
       } else {
-        searchTyping(val)
+        if (val.length === 1) {
+          trackSearchInputStarted(val)
+        }
+        trackSearchCompleted(val, filteredEvents.length)
       }
     },
-    [searchCleared, searchTyping],
+    [trackEvent, trackSearchInputStarted, trackSearchCompleted, filteredEvents.length],
   )
 
   const handleCategoryClick = useCallback(
     (genre: string) => {
       setSelectedGenre(genre)
+      setFilterStepCount(prev => prev + 1)
       if (genre === 'All') {
-        categoryCleared()
+        trackEvent('category_filter_cleared')
       } else {
+        const selectionTime = filterStartTime ? Date.now() - filterStartTime : 0
         // 'sidebar' is Variant A; change to 'horizontal' if you move filters
-        categorySelected(genre, 'sidebar')
+        trackCategorySelected(genre, selectionTime)
       }
     },
-    [categoryCleared, categorySelected],
+    [trackEvent, trackCategorySelected, filterStartTime],
   )
 
   if (loading) {
@@ -170,9 +176,10 @@ export default function EventListPage() {
                   <input 
                     id="search-input"
                     type="text"
+                    data-track-hover="search_input"
                     value={searchQuery}
                     onChange={handleSearchChange}
-                    onFocus={searchFocused}
+                    onFocus={trackSearchFocus}
                     placeholder="E.g. Hamlet, Jazz Festival..."
                     className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold text-white focus:bg-white/10 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all placeholder:text-slate-600"
                   />
@@ -183,7 +190,12 @@ export default function EventListPage() {
               {/* Categories */}
               <div className="space-y-6">
                 <h3 id="category-filter-label" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Categories</h3>
-                <div id="category-filter-group" className="flex flex-col gap-2">
+                <div 
+                  id="category-filter-group" 
+                  data-track-hover="category_filters"
+                  onMouseEnter={() => { if (!filterStartTime) setFilterStartTime(Date.now()); }}
+                  className="flex flex-col gap-2"
+                >
                   {genres.map((genre) => (
                     <button 
                       key={genre}
@@ -296,6 +308,7 @@ export default function EventListPage() {
                               </div>
                               <Link 
                                 href={`/events/${event.slug}`}
+                                onClick={() => trackCategoryEventClicked(event.title, filterStepCount)}
                                 className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-teal-500 hover:text-slate-900 transition-all shadow-xl active:scale-95"
                               >
                                 View Details

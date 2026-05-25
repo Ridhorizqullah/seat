@@ -12,6 +12,7 @@ import {
   Info,
   ShieldCheck
 } from 'lucide-react'
+import { SuccessTracker } from '@/components/booking/success-tracker'
 
 async function fetchBooking(identifier: string) {
   const supabase = getServerSupabase()
@@ -119,6 +120,7 @@ export default async function BookingSuccessPage({
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] pb-20">
+      <SuccessTracker totalAmount={Number(booking.totalAmount)} />
       {/* Header / Success Indicator */}
       <div className="bg-white border-b border-slate-100 py-10">
         <div className="max-w-[800px] mx-auto px-6 text-center">

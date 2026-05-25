@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useClarityTracking } from '@/components/providers/use-clarity-tracking'
+import { useUsabilityTracking } from '@/lib/usability-analytics'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -55,21 +55,21 @@ export default function ProfilePage() {
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null)
   const [showTicketModal, setShowTicketModal] = useState(false)
 
-  //   // ── Clarity Tracking hooks (UC5: Profile Update) ──────────────────────────
+  // ── Usability & A/B Analytics Tracking (UC5: Profile Update) ──────────────
   const {
-    avatarHovered,
-    photoUploadTriggered,
-    photoUploadSuccess,
-    photoUploadFailed,
+    trackProfileAvatarHover,
+    trackProfileOverlayVisible,
+    trackProfileUploadStarted,
+    trackProfileUploadSuccess,
+    trackProfileUploadFailed,
     profileUpdated,
-    setPageSection,
-  } = useClarityTracking()
+    trackEvent
+  } = useUsabilityTracking()
 
-  // Tag this page section for Clarity session segmentation
+  // Track profile overlay visibility on tab changes or mount
   useEffect(() => {
-    setPageSection('profile')
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    trackProfileOverlayVisible()
+  }, [trackProfileOverlayVisible])
 
   // Fetch Session, Profile, and Bookings on load
   useEffect(() => {
@@ -267,12 +267,12 @@ export default function ProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Track upload trigger (hover_overlay = Variant B)
-    photoUploadTriggered('hover_overlay')
+    // Track upload trigger
+    trackProfileUploadStarted()
 
     // Limit size to 2.5MB
     if (file.size > 2.5 * 1024 * 1024) {
-      photoUploadFailed('file_too_large')
+      trackProfileUploadFailed('file_too_large')
       alert("Image size must be less than 2.5MB.")
       return
     }
@@ -284,10 +284,10 @@ export default function ProfilePage() {
       if (session?.email) {
         localStorage.setItem(`eventseats_avatar_${session.email}`, base64String)
       }
-      photoUploadSuccess()
+      trackProfileUploadSuccess()
     }
     reader.onerror = () => {
-      photoUploadFailed('file_read_error')
+      trackProfileUploadFailed('file_read_error')
     }
     reader.readAsDataURL(file)
   }
@@ -648,8 +648,8 @@ Thank you for booking with EventSeats!
             {/* Interactive Uploadable Avatar */}
             <div
               id="avatar-upload-trigger"
+              data-track-hover="avatar"
               className="relative group cursor-pointer animate-fade-in"
-              onMouseEnter={avatarHovered}
               onClick={() => document.getElementById('avatar-upload')?.click()}
             >
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-teal-50 flex items-center justify-center bg-teal-600/10 relative shadow-inner">

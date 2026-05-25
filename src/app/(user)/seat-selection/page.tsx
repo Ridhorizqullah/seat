@@ -18,7 +18,8 @@ import { SeatGrid } from '@/components/seat/seat-grid'
 import { useRealtimeSeats } from '@/lib/hooks/use-realtime-seats'
 import { Seat, SeatSelection, TicketType } from '@/types'
 import { cn } from '@/lib/utils'
-import { useClarityTracking, useTaskTimer } from '@/components/providers/use-clarity-tracking'
+import { useUsabilityTracking } from '@/lib/usability-analytics'
+import { useRef } from 'react'
 
 function SeatSelectionContent() {
   const searchParams = useSearchParams()
@@ -34,17 +35,22 @@ function SeatSelectionContent() {
   // Realtime hook
   const { bookedSeats } = useRealtimeSeats(performanceId || '')
 
-  // ── Clarity Tracking (UC4: Seat Booking) ─────────────────────────────────
+  // ── Usability & A/B Analytics Tracking (UC4: Seat Booking) ────────────────
   const {
-    seatPageLoaded,
-    seatClicked,
-    legendReferenced,
-    seatSelectionCompleted,
-    checkoutClicked,
-    setPageSection,
-  } = useClarityTracking()
-  // Timer measures time from page load to first seat click
-  const { startTimer: startDecisionTimer, stopAndRecord: recordDecisionTime } = useTaskTimer('seat_decision')
+    trackSeatLegendView,
+    trackSeatSelected,
+    trackSeatWrongSelected,
+    trackSeatDeselected,
+    trackSeatConfirmed,
+    trackCheckoutClicked,
+    trackCheckoutButtonVisible,
+    trackEvent
+  } = useUsabilityTracking()
+
+  // Ref to track page load time for decision metrics
+  const loadTimeRef = useRef<number>(Date.now())
+  const hasClickedSeatRef = useRef<boolean>(false)
+  const [firstSeatClickTime, setFirstSeatClickTime] = useState<number>(0)
 
   useEffect(() => {
     if (!performanceId || !showId) {
@@ -90,19 +96,21 @@ function SeatSelectionContent() {
   // Tag page in Clarity once layout is ready
   useEffect(() => {
     if (layout) {
-      setPageSection('seat_selection')
-      // 'clear' = Variant B (with border/glow); change to 'plain' for Variant A
-      seatPageLoaded('clear')
-      startDecisionTimer()
+      trackEvent('seat_color_variant', { color_variant: 'clear' })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!layout])
 
   const handleSeatSelect = useCallback((seat: Seat, ticketType: TicketType) => {
-    // Stop decision timer on first seat click
-    recordDecisionTime()
-    // Track in Clarity
-    seatClicked(seat.id, ticketType, 'select')
+    // Record first seat click decision time
+    if (!hasClickedSeatRef.current) {
+      hasClickedSeatRef.current = true
+      const elapsed = Date.now() - loadTimeRef.current
+      setFirstSeatClickTime(elapsed)
+    }
+
+    const typeMapped = ticketType === TicketType.CHILD ? 'Child' : ticketType === TicketType.CONCESSION ? 'Concession' : 'Adult'
+    trackSeatSelected(seat.id, typeMapped)
 
     // Get price based on ticket type
     let price = show.adultPrice
@@ -116,12 +124,12 @@ function SeatSelectionContent() {
       price: price
     }
     setSelectedSeats(prev => [...prev, newSelection])
-  }, [show, seatClicked, recordDecisionTime])
+  }, [show, trackSeatSelected])
 
   const handleSeatDeselect = useCallback((seatId: string) => {
-    seatClicked(seatId, 'unknown', 'deselect')
+    trackSeatDeselected(seatId)
     setSelectedSeats(prev => prev.filter(s => s.seatId !== seatId))
-  }, [seatClicked])
+  }, [trackSeatDeselected])
 
   const handleTicketTypeChange = useCallback((seatId: string, ticketType: TicketType) => {
     let price = show.adultPrice
@@ -212,9 +220,8 @@ function SeatSelectionContent() {
                   href={selectedSeats.length > 0 ? `/checkout?performanceId=${performanceId}&showId=${showId}&selections=${encodeURIComponent(JSON.stringify(selectedSeats.map(s => ({ seatId: s.seatId, ticketType: s.ticketType }))))}` : "#"}
                   onClick={() => {
                     if (selectedSeats.length > 0) {
-                      seatSelectionCompleted(selectedSeats.length)
-                      // Variant B = seat_summary (button in right panel, not sticky header)
-                      checkoutClicked('seat_summary')
+                      trackSeatConfirmed(selectedSeats.length, firstSeatClickTime)
+                      trackCheckoutClicked(firstSeatClickTime)
                     }
                   }}
                   className={cn(
@@ -285,7 +292,7 @@ function SeatSelectionContent() {
             </div>
 
             {/* Price Information */}
-            <div id="seat-legend" className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm" onMouseEnter={legendReferenced}>
+            <div id="seat-legend" data-track-hover="legend" className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
                  <CreditCard className="w-3 h-3" />
                  Informasi Harga Tiket
@@ -330,6 +337,12 @@ function SeatSelectionContent() {
           </div>
           <Link 
             href={selectedSeats.length > 0 ? `/checkout?performanceId=${performanceId}&showId=${showId}&selections=${encodeURIComponent(JSON.stringify(selectedSeats.map(s => ({ seatId: s.seatId, ticketType: s.ticketType }))))}` : "#"}
+            onClick={() => {
+              if (selectedSeats.length > 0) {
+                trackSeatConfirmed(selectedSeats.length, firstSeatClickTime)
+                trackCheckoutClicked(firstSeatClickTime)
+              }
+            }}
             className={cn(
               "flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl flex items-center justify-center gap-3 text-center",
               selectedSeats.length > 0 

@@ -371,7 +371,7 @@ export function UsabilityAnalyticsProvider({ children, projectId }: UsabilityAna
 
             {/* Think-Aloud Annotation Form */}
             <form onSubmit={handleAddThinkAloud} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Add Think-Aloud Marker (Ctrl+Shift+T)</label>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Catatan (Ctrl+Shift+T)</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="text"

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
-import { useClarityTracking, useTaskTimer } from '@/components/providers/use-clarity-tracking'
+import { useUsabilityTracking } from '@/lib/usability-analytics'
 
 function CheckoutContent() {
   const router = useRouter()
@@ -46,9 +46,18 @@ function CheckoutContent() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
 
-  // ── Clarity Tracking (UC2: Checkout) ────────────────────────────────────
-  const { checkoutVisible, checkoutAbandoned, setPageSection } = useClarityTracking()
-  const { startTimer: startCheckoutTimer, stopAndRecord: recordCheckoutTime } = useTaskTimer('checkout_to_payment')
+  // ── Usability & A/B Analytics Tracking (UC2: Checkout) ──────────────────
+  const {
+    trackCheckoutButtonVisible,
+    trackCheckoutClicked,
+    trackCheckoutCompleted,
+    trackCheckoutMisclickNavbar,
+    trackCheckoutMisclickScroll,
+    trackCheckoutReselectSeat,
+    trackEvent
+  } = useUsabilityTracking()
+
+  const [checkoutStartTime] = useState(() => Date.now())
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -78,9 +87,7 @@ function CheckoutContent() {
 
           setAuthLoading(false)
           // Tag checkout page and mark button as visible in seat_summary (Variant B)
-          setPageSection('checkout')
-          checkoutVisible('seat_summary')
-          startCheckoutTimer()
+          trackCheckoutButtonVisible('seat_summary')
         } else {
           router.push('/login?callbackUrl=/checkout?' + searchParams.toString())
         }
@@ -121,7 +128,7 @@ function CheckoutContent() {
     setProcessing(true)
     setError('')
     // Measure time from checkout page load to payment submission
-    recordCheckoutTime()
+    trackCheckoutClicked(Date.now() - checkoutStartTime)
 
     try {
       // Prepare payload for create-session
@@ -205,7 +212,7 @@ function CheckoutContent() {
           {/* Back button tracks abandonment in Clarity */}
           <Link
             href={`/seat-selection?showId=${showId}&performanceId=${performanceId}`}
-            onClick={checkoutAbandoned}
+            onClick={() => trackEvent('checkout_abandoned')}
             className="flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-colors group"
           >
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
