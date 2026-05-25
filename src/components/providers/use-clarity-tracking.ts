@@ -35,11 +35,16 @@ function nowMs() {
 // ---------------------------------------------------------------------------
 
 export function useClarityTracking() {
+  const hasTriggeredTypingRef = useRef(false)
 
   // ── UC1: Event Search ──────────────────────────────────────────────────────
 
   const searchFocused = useCallback(() => {
-    if (typeof window !== 'undefined') Clarity.setTag('search_interaction', 'focused')
+    if (typeof window !== 'undefined') {
+      Clarity.setTag('search_interaction', 'focused')
+      Clarity.event('search_focused')
+      hasTriggeredTypingRef.current = false
+    }
   }, [])
 
   const searchTyping = useCallback(
@@ -48,6 +53,10 @@ export function useClarityTracking() {
         Clarity.setTag('search_interaction', 'typing')
         if (query && query.length >= 2) {
           Clarity.setTag('search_query_length', String(query.length))
+          if (!hasTriggeredTypingRef.current) {
+            Clarity.event('search_typing')
+            hasTriggeredTypingRef.current = true
+          }
         }
       }
     },
@@ -55,7 +64,11 @@ export function useClarityTracking() {
   )
 
   const searchCleared = useCallback(() => {
-    if (typeof window !== 'undefined') Clarity.setTag('search_interaction', 'cleared')
+    if (typeof window !== 'undefined') {
+      Clarity.setTag('search_interaction', 'cleared')
+      Clarity.event('search_cleared')
+      hasTriggeredTypingRef.current = false
+    }
   }, [])
 
   const searchResultsShown = useCallback(
@@ -63,6 +76,7 @@ export function useClarityTracking() {
       if (typeof window !== 'undefined') {
         Clarity.setTag('search_result_count', String(resultCount))
         Clarity.setTag('search_has_results', resultCount > 0 ? 'yes' : 'no')
+        Clarity.event('search_results_shown')
       }
     },
     [],
