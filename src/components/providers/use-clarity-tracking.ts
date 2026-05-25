@@ -12,6 +12,16 @@
 import { useEffect, useRef, useCallback } from 'react'
 import Clarity from '@microsoft/clarity'
 
+// Initialize Clarity queue globally on the window to prevent race conditions
+// where child components call hooks/APIs before Clarity.init() runs.
+if (typeof window !== 'undefined') {
+  const win = window as any;
+  win.clarity = win.clarity || function () {
+    // eslint-disable-next-line prefer-rest-params
+    (win.clarity.q = win.clarity.q || []).push(arguments);
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
