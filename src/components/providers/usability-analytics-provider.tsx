@@ -177,7 +177,7 @@ export function UsabilityAnalyticsProvider({ children, projectId }: UsabilityAna
       }
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
         e.preventDefault()
-        const note = prompt('Enter think-aloud observation marker:')
+        const note = prompt('Masukkan Catatan (Ctrl+Shift+T):')
         if (note && note.trim()) {
           logThinkAloudLocally(note.trim(), meta.startTime)
           Clarity.setTag('last_think_aloud_note', note)
@@ -358,7 +358,7 @@ export function UsabilityAnalyticsProvider({ children, projectId }: UsabilityAna
                   <span style={{ color: '#64748b' }}>Total Logs:</span> <strong style={{ color: '#f8fafc' }}>{eventsCount}</strong>
                 </div>
                 <div style={{ fontSize: '12px' }}>
-                  <span style={{ color: '#64748b' }}>Think-Alouds:</span> <strong style={{ color: '#f8fafc' }}>{thinkAloudCount}</strong>
+                  <span style={{ color: '#64748b' }}>Catatan:</span> <strong style={{ color: '#f8fafc' }}>{thinkAloudCount}</strong>
                 </div>
                 <div style={{ fontSize: '12px' }}>
                   <span style={{ color: '#e11d48' }}>Rage Clicks:</span> <strong style={{ color: '#f43f5e' }}>{rageClickCount}</strong>
@@ -375,7 +375,7 @@ export function UsabilityAnalyticsProvider({ children, projectId }: UsabilityAna
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="text"
-                  placeholder="Record user verbalized issue..."
+                  placeholder="Tulis catatan observasi / think-aloud..."
                   value={thinkAloudInput}
                   onChange={(e) => setThinkAloudInput(e.target.value)}
                   style={{

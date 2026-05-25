@@ -37,14 +37,10 @@ function SeatSelectionContent() {
 
   // ── Usability & A/B Analytics Tracking (UC4: Seat Booking) ────────────────
   const {
-    trackSeatLegendView,
     trackSeatSelected,
-    trackSeatWrongSelected,
     trackSeatDeselected,
     trackSeatConfirmed,
-    trackCheckoutClicked,
-    trackCheckoutButtonVisible,
-    trackEvent
+    trackCheckoutClicked
   } = useUsabilityTracking()
 
   // Ref to track page load time for decision metrics

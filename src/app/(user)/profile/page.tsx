@@ -57,13 +57,11 @@ export default function ProfilePage() {
 
   // ── Usability & A/B Analytics Tracking (UC5: Profile Update) ──────────────
   const {
-    trackProfileAvatarHover,
     trackProfileOverlayVisible,
     trackProfileUploadStarted,
     trackProfileUploadSuccess,
     trackProfileUploadFailed,
-    profileUpdated,
-    trackEvent
+    trackProfileUpdated
   } = useUsabilityTracking()
 
   // Track profile overlay visibility on tab changes or mount
@@ -161,7 +159,7 @@ export default function ProfilePage() {
     if (form.phone !== customer?.phone) changedFields.push('phone')
     if (form.address !== customer?.address) changedFields.push('address')
     if (form.email !== session?.email) changedFields.push('email')
-    if (changedFields.length > 0) profileUpdated(changedFields)
+    if (changedFields.length > 0) trackProfileUpdated(changedFields)
 
     try {
       setUpdating(true)

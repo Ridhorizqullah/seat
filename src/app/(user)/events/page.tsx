@@ -38,7 +38,6 @@ export default function EventListPage() {
   const [filterStepCount, setFilterStepCount] = useState(0)
 
   // Track search first interaction time & filter selection start
-  const [searchStartTime] = useState(() => Date.now())
   const [filterStartTime, setFilterStartTime] = useState<number | null>(null)
 
   useEffect(() => {

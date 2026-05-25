@@ -173,6 +173,10 @@ export function useUsabilityTracking() {
     trackEvent('profile_upload_failed', { error_reason: reason })
   }, [trackEvent])
 
+  const trackProfileUpdated = useCallback((fieldsChanged: string[]) => {
+    trackEvent('profile_updated', { fields: fieldsChanged.join(',') })
+  }, [trackEvent])
+
   return {
     participantId: metadata.participantId,
     sessionId: metadata.sessionId,
@@ -219,6 +223,7 @@ export function useUsabilityTracking() {
     trackProfileOverlayVisible,
     trackProfileUploadStarted,
     trackProfileUploadSuccess,
-    trackProfileUploadFailed
+    trackProfileUploadFailed,
+    trackProfileUpdated
   } as const
 }
