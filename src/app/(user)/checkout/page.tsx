@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { useClarityTracking, useTaskTimer } from '@/components/providers/use-clarity-tracking'
 
 function CheckoutContent() {
   const router = useRouter()
@@ -44,6 +45,10 @@ function CheckoutContent() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+
+  // ── Clarity Tracking (UC2: Checkout) ────────────────────────────────────
+  const { checkoutVisible, checkoutAbandoned, setPageSection } = useClarityTracking()
+  const { startTimer: startCheckoutTimer, stopAndRecord: recordCheckoutTime } = useTaskTimer('checkout_to_payment')
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -72,6 +77,10 @@ function CheckoutContent() {
           }
 
           setAuthLoading(false)
+          // Tag checkout page and mark button as visible in seat_summary (Variant B)
+          setPageSection('checkout')
+          checkoutVisible('seat_summary')
+          startCheckoutTimer()
         } else {
           router.push('/login?callbackUrl=/checkout?' + searchParams.toString())
         }
@@ -81,6 +90,7 @@ function CheckoutContent() {
     }
     
     checkAuth()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, searchParams])
 
   useEffect(() => {
@@ -110,6 +120,8 @@ function CheckoutContent() {
     e.preventDefault()
     setProcessing(true)
     setError('')
+    // Measure time from checkout page load to payment submission
+    recordCheckoutTime()
 
     try {
       // Prepare payload for create-session
@@ -190,7 +202,12 @@ function CheckoutContent() {
       {/* Header */}
       <div className="bg-white border-b border-slate-100">
         <div className="max-w-[1200px] mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href={`/seat-selection?showId=${showId}&performanceId=${performanceId}`} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-colors group">
+          {/* Back button tracks abandonment in Clarity */}
+          <Link
+            href={`/seat-selection?showId=${showId}&performanceId=${performanceId}`}
+            onClick={checkoutAbandoned}
+            className="flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-colors group"
+          >
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             <span className="text-sm font-bold">Kembali</span>
           </Link>

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useClarityTracking } from '@/components/providers/use-clarity-tracking'
 import { 
   Search, 
   Filter, 
@@ -21,7 +22,21 @@ export default function EventListPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedGenre, setSelectedGenre] = useState('All')
 
+  // ── Clarity Tracking ──────────────────────────────────────────────────────
+  const {
+    searchFocused,
+    searchTyping,
+    searchCleared,
+    searchResultsShown,
+    categorySelected,
+    categoryCleared,
+    setPageSection,
+  } = useClarityTracking()
+
   useEffect(() => {
+    // Tag this page section for Clarity session segmentation
+    setPageSection('events_list')
+
     async function fetchEvents() {
       try {
         setLoading(true)
@@ -38,6 +53,7 @@ export default function EventListPage() {
     }
 
     fetchEvents()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const genres = useMemo(() => {
@@ -53,6 +69,41 @@ export default function EventListPage() {
       return matchesSearch && matchesGenre
     })
   }, [events, searchQuery, selectedGenre])
+
+  // Notify Clarity whenever filtered results change
+  useEffect(() => {
+    if (!loading) {
+      searchResultsShown(filteredEvents.length)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredEvents.length, loading])
+
+  // Stable handlers for filter interactions
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value
+      setSearchQuery(val)
+      if (val === '') {
+        searchCleared()
+      } else {
+        searchTyping(val)
+      }
+    },
+    [searchCleared, searchTyping],
+  )
+
+  const handleCategoryClick = useCallback(
+    (genre: string) => {
+      setSelectedGenre(genre)
+      if (genre === 'All') {
+        categoryCleared()
+      } else {
+        // 'sidebar' is Variant A; change to 'horizontal' if you move filters
+        categorySelected(genre, 'sidebar')
+      }
+    },
+    [categoryCleared, categorySelected],
+  )
 
   if (loading) {
     return (
@@ -117,9 +168,11 @@ export default function EventListPage() {
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Search Events</h3>
                 <div className="relative group">
                   <input 
+                    id="search-input"
                     type="text"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={handleSearchChange}
+                    onFocus={searchFocused}
                     placeholder="E.g. Hamlet, Jazz Festival..."
                     className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold text-white focus:bg-white/10 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all placeholder:text-slate-600"
                   />
@@ -129,12 +182,13 @@ export default function EventListPage() {
 
               {/* Categories */}
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Categories</h3>
-                <div className="flex flex-col gap-2">
+                <h3 id="category-filter-label" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Categories</h3>
+                <div id="category-filter-group" className="flex flex-col gap-2">
                   {genres.map((genre) => (
                     <button 
                       key={genre}
-                      onClick={() => setSelectedGenre(genre)}
+                      id={`category-btn-${genre.toLowerCase().replace(/\s+/g, '-')}`}
+                      onClick={() => handleCategoryClick(genre)}
                       className={cn(
                         "flex items-center justify-between px-6 py-3 rounded-xl text-sm font-bold transition-all group",
                         selectedGenre === genre 

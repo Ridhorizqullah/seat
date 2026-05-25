@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense, useMemo } from 'react'
+import { useState, useEffect, Suspense, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { 
@@ -18,6 +18,7 @@ import { SeatGrid } from '@/components/seat/seat-grid'
 import { useRealtimeSeats } from '@/lib/hooks/use-realtime-seats'
 import { Seat, SeatSelection, TicketType } from '@/types'
 import { cn } from '@/lib/utils'
+import { useClarityTracking, useTaskTimer } from '@/components/providers/use-clarity-tracking'
 
 function SeatSelectionContent() {
   const searchParams = useSearchParams()
@@ -32,6 +33,18 @@ function SeatSelectionContent() {
 
   // Realtime hook
   const { bookedSeats } = useRealtimeSeats(performanceId || '')
+
+  // ── Clarity Tracking (UC4: Seat Booking) ─────────────────────────────────
+  const {
+    seatPageLoaded,
+    seatClicked,
+    legendReferenced,
+    seatSelectionCompleted,
+    checkoutClicked,
+    setPageSection,
+  } = useClarityTracking()
+  // Timer measures time from page load to first seat click
+  const { startTimer: startDecisionTimer, stopAndRecord: recordDecisionTime } = useTaskTimer('seat_decision')
 
   useEffect(() => {
     if (!performanceId || !showId) {
@@ -74,7 +87,23 @@ function SeatSelectionContent() {
     fetchData()
   }, [performanceId, showId])
 
-  const handleSeatSelect = (seat: Seat, ticketType: TicketType) => {
+  // Tag page in Clarity once layout is ready
+  useEffect(() => {
+    if (layout) {
+      setPageSection('seat_selection')
+      // 'clear' = Variant B (with border/glow); change to 'plain' for Variant A
+      seatPageLoaded('clear')
+      startDecisionTimer()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!layout])
+
+  const handleSeatSelect = useCallback((seat: Seat, ticketType: TicketType) => {
+    // Stop decision timer on first seat click
+    recordDecisionTime()
+    // Track in Clarity
+    seatClicked(seat.id, ticketType, 'select')
+
     // Get price based on ticket type
     let price = show.adultPrice
     if (ticketType === TicketType.CHILD) price = show.childPrice
@@ -86,22 +115,23 @@ function SeatSelectionContent() {
       ticketType: ticketType,
       price: price
     }
-    setSelectedSeats([...selectedSeats, newSelection])
-  }
+    setSelectedSeats(prev => [...prev, newSelection])
+  }, [show, seatClicked, recordDecisionTime])
 
-  const handleSeatDeselect = (seatId: string) => {
-    setSelectedSeats(selectedSeats.filter(s => s.seatId !== seatId))
-  }
+  const handleSeatDeselect = useCallback((seatId: string) => {
+    seatClicked(seatId, 'unknown', 'deselect')
+    setSelectedSeats(prev => prev.filter(s => s.seatId !== seatId))
+  }, [seatClicked])
 
-  const handleTicketTypeChange = (seatId: string, ticketType: TicketType) => {
+  const handleTicketTypeChange = useCallback((seatId: string, ticketType: TicketType) => {
     let price = show.adultPrice
     if (ticketType === TicketType.CHILD) price = show.childPrice
     if (ticketType === TicketType.CONCESSION) price = show.concessionPrice
 
-    setSelectedSeats(selectedSeats.map(s => 
+    setSelectedSeats(prev => prev.map(s => 
       s.seatId === seatId ? { ...s, ticketType, price } : s
     ))
-  }
+  }, [show])
 
   const totalPrice = useMemo(() => {
     return selectedSeats.reduce((sum, s) => sum + s.price, 0)
@@ -178,7 +208,15 @@ function SeatSelectionContent() {
              <div className="flex items-center gap-4">
                 <span className="text-2xl font-black text-slate-900">£{totalPrice.toFixed(2)}</span>
                 <Link 
+                  id="checkout-button"
                   href={selectedSeats.length > 0 ? `/checkout?performanceId=${performanceId}&showId=${showId}&selections=${encodeURIComponent(JSON.stringify(selectedSeats.map(s => ({ seatId: s.seatId, ticketType: s.ticketType }))))}` : "#"}
+                  onClick={() => {
+                    if (selectedSeats.length > 0) {
+                      seatSelectionCompleted(selectedSeats.length)
+                      // Variant B = seat_summary (button in right panel, not sticky header)
+                      checkoutClicked('seat_summary')
+                    }
+                  }}
                   className={cn(
                     "px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl flex items-center gap-3",
                     selectedSeats.length > 0 
@@ -247,7 +285,7 @@ function SeatSelectionContent() {
             </div>
 
             {/* Price Information */}
-            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+            <div id="seat-legend" className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm" onMouseEnter={legendReferenced}>
                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
                  <CreditCard className="w-3 h-3" />
                  Informasi Harga Tiket

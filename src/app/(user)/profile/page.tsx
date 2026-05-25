@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useClarityTracking } from '@/components/providers/use-clarity-tracking'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -54,8 +55,25 @@ export default function ProfilePage() {
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null)
   const [showTicketModal, setShowTicketModal] = useState(false)
 
+  //   // ── Clarity Tracking hooks (UC5: Profile Update) ──────────────────────────
+  const {
+    avatarHovered,
+    photoUploadTriggered,
+    photoUploadSuccess,
+    photoUploadFailed,
+    profileUpdated,
+    setPageSection,
+  } = useClarityTracking()
+
+  // Tag this page section for Clarity session segmentation
+  useEffect(() => {
+    setPageSection('profile')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Fetch Session, Profile, and Bookings on load
   useEffect(() => {
+
     async function initProfile() {
       try {
         setLoading(true)
@@ -136,6 +154,15 @@ export default function ProfilePage() {
   // Handle Profile Update
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Track which fields were changed
+    const changedFields: string[] = []
+    if (form.firstName !== customer?.firstName) changedFields.push('firstName')
+    if (form.lastName !== customer?.lastName) changedFields.push('lastName')
+    if (form.phone !== customer?.phone) changedFields.push('phone')
+    if (form.address !== customer?.address) changedFields.push('address')
+    if (form.email !== session?.email) changedFields.push('email')
+    if (changedFields.length > 0) profileUpdated(changedFields)
+
     try {
       setUpdating(true)
       setMessage(null)
@@ -240,8 +267,12 @@ export default function ProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Track upload trigger (hover_overlay = Variant B)
+    photoUploadTriggered('hover_overlay')
+
     // Limit size to 2.5MB
     if (file.size > 2.5 * 1024 * 1024) {
+      photoUploadFailed('file_too_large')
       alert("Image size must be less than 2.5MB.")
       return
     }
@@ -253,6 +284,10 @@ export default function ProfilePage() {
       if (session?.email) {
         localStorage.setItem(`eventseats_avatar_${session.email}`, base64String)
       }
+      photoUploadSuccess()
+    }
+    reader.onerror = () => {
+      photoUploadFailed('file_read_error')
     }
     reader.readAsDataURL(file)
   }
@@ -611,7 +646,12 @@ Thank you for booking with EventSeats!
           <div className="bg-white border border-slate-100 rounded-2xl p-8 flex flex-col items-center text-center space-y-6 sticky top-28 shadow-sm">
             
             {/* Interactive Uploadable Avatar */}
-            <div className="relative group cursor-pointer animate-fade-in" onClick={() => document.getElementById('avatar-upload')?.click()}>
+            <div
+              id="avatar-upload-trigger"
+              className="relative group cursor-pointer animate-fade-in"
+              onMouseEnter={avatarHovered}
+              onClick={() => document.getElementById('avatar-upload')?.click()}
+            >
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-teal-50 flex items-center justify-center bg-teal-600/10 relative shadow-inner">
                 {avatar ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
