@@ -49,7 +49,8 @@ function CheckoutContent() {
   // ── Usability & A/B Analytics Tracking (UC2: Checkout) ──────────────────
   const {
     trackCheckoutButtonVisible,
-    trackCheckoutClicked
+    trackCheckoutClicked,
+    trackEvent
   } = useUsabilityTracking()
 
   const [checkoutStartTime] = useState(() => Date.now())

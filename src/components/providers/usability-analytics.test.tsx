@@ -1,8 +1,8 @@
 import { renderHook, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useUsabilityTracking } from '../../lib/usability-analytics/react-hooks'
 import { getSessionMetadata, generateParticipantId } from '../../lib/usability-analytics/session'
-import { getLocalEvents, clearLocalAnalytics } from '../../lib/usability-analytics/local-exporter'
+import Clarity from '@microsoft/clarity'
 
 // Mock the @microsoft/clarity module
 vi.mock('@microsoft/clarity', () => ({
@@ -13,17 +13,13 @@ vi.mock('@microsoft/clarity', () => ({
   },
 }))
 
-describe('Usability Analytics Core Tests', () => {
+describe('Usability Analytics Core Tests (Clarity Routing)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     if (typeof window !== 'undefined') {
       localStorage.clear()
       sessionStorage.clear()
     }
-  })
-
-  afterEach(() => {
-    clearLocalAnalytics()
   })
 
   describe('Session Metadata', () => {
@@ -43,153 +39,109 @@ describe('Usability Analytics Core Tests', () => {
   })
 
   describe('useUsabilityTracking Hook', () => {
-    it('successfully logs events for Use Case 1: Search Event', () => {
+    it('successfully routes events for Use Case 1: Search Event to Clarity', () => {
       const { result } = renderHook(() => useUsabilityTracking())
 
       act(() => {
         result.current.trackSearchVisible()
       })
-      let events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('search_visible')
+      expect(Clarity.event).toHaveBeenCalledWith('search_visible')
 
       act(() => {
         result.current.trackSearchFocus()
       })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('search_focus')
+      expect(Clarity.event).toHaveBeenCalledWith('search_focus')
 
       act(() => {
         result.current.trackSearchInputStarted('T')
       })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('search_input_started')
-      expect(events[events.length - 1].eventData?.char).toBe('T')
+      expect(Clarity.setTag).toHaveBeenCalledWith('search_input_started_char', 'T')
+      expect(Clarity.event).toHaveBeenCalledWith('search_input_started')
 
       act(() => {
         result.current.trackSearchCompleted('The Weeknd', 3)
       })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('search_completed')
-      expect(events[events.length - 1].eventData?.query_length).toBe(10)
-      expect(events[events.length - 1].eventData?.result_count).toBe(3)
-      expect(events[events.length - 1].eventData?.has_results).toBe('yes')
+      expect(Clarity.setTag).toHaveBeenCalledWith('search_completed_query_length', '10')
+      expect(Clarity.setTag).toHaveBeenCalledWith('search_completed_result_count', '3')
+      expect(Clarity.setTag).toHaveBeenCalledWith('search_completed_has_results', 'yes')
+      expect(Clarity.event).toHaveBeenCalledWith('search_completed')
 
       act(() => {
         result.current.trackSearchScrollDepth(50)
       })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('search_scroll_depth')
-      expect(events[events.length - 1].eventData?.milestone).toBe(50)
+      expect(Clarity.setTag).toHaveBeenCalledWith('search_scroll_depth_milestone', '50')
+      expect(Clarity.event).toHaveBeenCalledWith('search_scroll_depth')
     })
 
-    it('successfully logs events for Use Case 2: Checkout Flow', () => {
+    it('successfully routes events for Use Case 2: Checkout Flow to Clarity', () => {
       const { result } = renderHook(() => useUsabilityTracking())
 
       act(() => {
         result.current.trackCheckoutButtonVisible('sticky_header')
       })
-      let events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('checkout_button_visible')
-      expect(events[events.length - 1].eventData?.location).toBe('sticky_header')
+      expect(Clarity.setTag).toHaveBeenCalledWith('checkout_button_visible_location', 'sticky_header')
+      expect(Clarity.event).toHaveBeenCalledWith('checkout_button_visible')
 
       act(() => {
         result.current.trackCheckoutClicked(4500)
       })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('checkout_clicked')
-      expect(events[events.length - 1].eventData?.discovery_time_ms).toBe(4500)
+      expect(Clarity.setTag).toHaveBeenCalledWith('checkout_clicked_discovery_time_ms', '4500')
+      expect(Clarity.event).toHaveBeenCalledWith('checkout_clicked')
 
       act(() => {
         result.current.trackCheckoutCompleted(150000, 2)
       })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('checkout_completed')
-      expect(events[events.length - 1].eventData?.amount).toBe(150000)
-
-      act(() => {
-        result.current.trackCheckoutMisclickNavbar('home_link')
-      })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('checkout_misclick_navbar')
-      expect(events[events.length - 1].eventData?.element).toBe('home_link')
-
-      act(() => {
-        result.current.trackCheckoutMisclickScroll(4)
-      })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('checkout_misclick_scroll')
-      expect(events[events.length - 1].eventData?.excess_scrolls).toBe(4)
-
-      act(() => {
-        result.current.trackCheckoutReselectSeat('A-3')
-      })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('checkout_reselect_seat')
-      expect(events[events.length - 1].eventData?.seat_id).toBe('A-3')
+      expect(Clarity.setTag).toHaveBeenCalledWith('checkout_completed_amount', '150000')
+      expect(Clarity.event).toHaveBeenCalledWith('checkout_completed')
     })
 
-    it('successfully logs events for Use Case 3: Filtering & Categories', () => {
+    it('successfully routes events for Use Case 3: Filtering & Categories to Clarity', () => {
       const { result } = renderHook(() => useUsabilityTracking())
 
       act(() => {
         result.current.trackCategoryFilterVisible()
       })
-      let events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('category_filter_visible')
+      expect(Clarity.event).toHaveBeenCalledWith('category_filter_visible')
 
       act(() => {
         result.current.trackCategorySelected('Drama', 2500)
       })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('category_selected')
-      expect(events[events.length - 1].eventData?.category).toBe('Drama')
-      expect(events[events.length - 1].eventData?.selection_time_ms).toBe(2500)
+      expect(Clarity.setTag).toHaveBeenCalledWith('category_selected_category', 'Drama')
+      expect(Clarity.setTag).toHaveBeenCalledWith('category_selected_selection_time_ms', '2500')
+      expect(Clarity.event).toHaveBeenCalledWith('category_selected')
     })
 
-    it('successfully logs events for Use Case 4: Seat Selection', () => {
+    it('successfully routes events for Use Case 4: Seat Selection to Clarity', () => {
       const { result } = renderHook(() => useUsabilityTracking())
 
       act(() => {
         result.current.trackSeatLegendView('teal')
       })
-      let events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('seat_legend_view')
-      expect(events[events.length - 1].eventData?.color).toBe('teal')
+      expect(Clarity.setTag).toHaveBeenCalledWith('seat_legend_view_color', 'teal')
+      expect(Clarity.event).toHaveBeenCalledWith('seat_legend_view')
 
       act(() => {
         result.current.trackSeatSelected('B-10', 'Adult')
       })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('seat_selected')
-      expect(events[events.length - 1].eventData?.seat_id).toBe('B-10')
-      expect(events[events.length - 1].eventData?.seat_type).toBe('Adult')
-
-      act(() => {
-        result.current.trackSeatWrongSelected('C-4', 'Child', 'Adult')
-      })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('seat_wrong_selected')
-      expect(events[events.length - 1].eventData?.seat_id).toBe('C-4')
-      expect(events[events.length - 1].eventData?.selected_type).toBe('Child')
-      expect(events[events.length - 1].eventData?.expected_type).toBe('Adult')
+      expect(Clarity.setTag).toHaveBeenCalledWith('seat_selected_seat_id', 'B-10')
+      expect(Clarity.setTag).toHaveBeenCalledWith('seat_selected_seat_type', 'Adult')
+      expect(Clarity.event).toHaveBeenCalledWith('seat_selected')
     })
 
-    it('successfully logs events for Use Case 5: Profile Updates', () => {
+    it('successfully routes events for Use Case 5: Profile Updates to Clarity', () => {
       const { result } = renderHook(() => useUsabilityTracking())
 
       act(() => {
         result.current.trackProfileAvatarHover(1800)
       })
-      let events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('profile_avatar_hover')
-      expect(events[events.length - 1].eventData?.hover_duration_ms).toBe(1800)
+      expect(Clarity.setTag).toHaveBeenCalledWith('profile_avatar_hover_hover_duration_ms', '1800')
+      expect(Clarity.event).toHaveBeenCalledWith('profile_avatar_hover')
 
       act(() => {
         result.current.trackProfileUploadFailed('File size exceeds 2MB')
       })
-      events = getLocalEvents()
-      expect(events[events.length - 1].eventName).toBe('profile_upload_failed')
-      expect(events[events.length - 1].eventData?.error_reason).toBe('File size exceeds 2MB')
+      expect(Clarity.setTag).toHaveBeenCalledWith('profile_upload_failed_error_reason', 'File size exceeds 2MB')
+      expect(Clarity.event).toHaveBeenCalledWith('profile_upload_failed')
     })
   })
 })

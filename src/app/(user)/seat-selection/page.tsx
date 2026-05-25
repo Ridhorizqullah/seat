@@ -40,7 +40,8 @@ function SeatSelectionContent() {
     trackSeatSelected,
     trackSeatDeselected,
     trackSeatConfirmed,
-    trackCheckoutClicked
+    trackCheckoutClicked,
+    trackEvent
   } = useUsabilityTracking()
 
   // Ref to track page load time for decision metrics

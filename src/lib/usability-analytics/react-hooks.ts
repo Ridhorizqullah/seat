@@ -1,34 +1,32 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useEffect } from 'react'
 import { getSessionMetadata } from './session'
-import { logEventLocally } from './local-exporter'
-import { markThinkAloud } from './think-aloud'
 import Clarity from '@microsoft/clarity'
 
 export function useUsabilityTracking() {
   const metadata = useMemo(() => getSessionMetadata(), [])
 
+  // Auto-register session tags to Clarity on hook instantiation
+  useEffect(() => {
+    if (typeof window !== 'undefined' && metadata) {
+      Clarity.setTag('participant_id', metadata.participantId)
+      Clarity.setTag('session_id', metadata.sessionId)
+      Clarity.setTag('variant_id', metadata.variantId)
+      Clarity.setTag('device_type', metadata.deviceType)
+      Clarity.setTag('browser_name', metadata.browserName)
+      Clarity.setTag('operating_system', metadata.operatingSystem)
+      Clarity.setTag('screen_resolution', metadata.screenResolution)
+      Clarity.setTag('viewport_size', metadata.viewportSize)
+    }
+  }, [metadata])
+
   // Generic tracking helper
   const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
     if (typeof window === 'undefined') return
 
-    const currentPath = window.location.pathname
+    // Set standard tags to make sure they are present
+    Clarity.setTag('participant_id', metadata.participantId)
+    Clarity.setTag('variant_id', metadata.variantId)
 
-    // 1. Log locally for research exports
-    logEventLocally({
-      participantId: metadata.participantId,
-      sessionId: metadata.sessionId,
-      variantId: metadata.variantId,
-      deviceType: metadata.deviceType,
-      browserName: metadata.browserName,
-      operatingSystem: metadata.operatingSystem,
-      screenResolution: metadata.screenResolution,
-      viewportSize: metadata.viewportSize,
-      path: currentPath,
-      eventName,
-      eventData
-    }, metadata.startTime)
-
-    // 2. Log to Microsoft Clarity
     // Send event data as custom tags if present
     if (eventData) {
       Object.entries(eventData).forEach(([key, val]) => {
@@ -38,9 +36,12 @@ export function useUsabilityTracking() {
     Clarity.event(eventName)
   }, [metadata])
 
-  // Mark Think-Aloud verbal comment
+  // Mark Think-Aloud verbal comment / Catatan
   const markThinkAloudNote = useCallback((note: string) => {
-    markThinkAloud(note)
+    if (typeof window !== 'undefined') {
+      Clarity.setTag('last_think_aloud_note', note.trim())
+      Clarity.event('think_aloud_marked')
+    }
   }, [])
 
   // ─── USE CASE 1: SEARCH EVENT ───

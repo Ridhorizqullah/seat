@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { DM_Sans, Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../components/providers/auth-provider";
-import { UsabilityAnalyticsProvider } from "../components/providers/usability-analytics-provider";
+import { ClarityProvider } from "../components/providers/clarity-provider";
 // Optional external brand stylesheet support via NEXT_PUBLIC_BRAND_STYLESHEET
 const brandStylesheet = process.env.NEXT_PUBLIC_BRAND_STYLESHEET
 import { Analytics } from "@vercel/analytics/next"
@@ -55,11 +55,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${poppins.variable} antialiased`}
       >
-        <UsabilityAnalyticsProvider>
+        <ClarityProvider>
           <AuthProvider>
             {children}
           </AuthProvider>
-        </UsabilityAnalyticsProvider>
+        </ClarityProvider>
         <Analytics />
       </body>
     </html>
